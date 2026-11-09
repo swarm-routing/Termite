@@ -22,11 +22,13 @@ Roth's dissertation [R05] describes three versions, with different constants:
 AntHocNet's `termite` arm followed ch. 4 with Table 4.1, but took F (and,
 in effect, its γ) from outside ch. 4. Its v2.5.0 anchor was §4.4's speed
 trend for the ch. 4 protocol (goodput and path length against speed), and it
-missed: the trend pointed the right way but the CIs spanned zero. Which
-version this repository implements is not chosen yet: every row below is
-prefixed with its chapter. Two things come before `core/`: the version
-choice, pre-registered in an issue, and the evidence-backed explanation of
-that anchor miss (AGENTS.md rule 12: the arm, the scenario, or power). Rows prefixed
+missed: the trend pointed the right way but the CIs spanned zero.
+
+**This repository implements ch. 4** (decided in #4, 2026-11-09): the version
+Table 4.1 gives constants for, the one the arm implemented, and the one §4.4's
+trend measures. Every row below is still prefixed with its chapter; the ch. 5
+and ch. 7 rows are reference only. Before `core/`, #5 must explain the anchor
+miss with evidence (AGENTS.md rule 12: the arm, the scenario, or power). Rows prefixed
 `scenario` are the simulation setups, kept for the anchor; they are not
 protocol constants.
 
