@@ -20,10 +20,13 @@ Roth's dissertation [R05] describes three versions, with different constants:
 | ch. 7 ReTermite | §7.2 (pp. 144–153), §7.3.1 (pp. 153–154) | ch. 5's forwarding and accounting (γPF, γ̄PF or pBF) plus RREQ flooding and RREP (§7.2.4); the only version compared with AODV |
 
 AntHocNet's `termite` arm followed ch. 4 with Table 4.1, but took F (and,
-in effect, its γ) from outside ch. 4, and its anchor came from ch. 7's AODV
-comparison. Which version this repository implements is not chosen yet: every
-row below is prefixed with its chapter, and the choice goes to the maintainer
-(pre-registered in an issue before `core/`, AGENTS.md rule 12). Rows prefixed
+in effect, its γ) from outside ch. 4. Its v2.5.0 anchor was §4.4's speed
+trend for the ch. 4 protocol (goodput and path length against speed), and it
+missed: the trend pointed the right way but the CIs spanned zero. Which
+version this repository implements is not chosen yet: every row below is
+prefixed with its chapter. Two things come before `core/`: the version
+choice, pre-registered in an issue, and the evidence-backed explanation of
+that anchor miss (AGENTS.md rule 12: the arm, the scenario, or power). Rows prefixed
 `scenario` are the simulation setups, kept for the anchor; they are not
 protocol constants.
 
@@ -117,7 +120,7 @@ the SIDM 2005 chapter were not read.
 | ch. 4: data TTL 32 | the harness's IP TTL, 64 | looping data lives twice as long |
 | ch. 4: hello reply delay not given | U[0, 10 ms) | an unrecorded repo choice |
 | ch. 4: seed phase not given | uniform in [0, seed period) | an unrecorded repo choice |
-| ch. 7 is the AODV comparison (p. 153–154) | anchor taken from §7.3, protocol from ch. 4 | the anchor tests a version the arm does not implement (input to the anchor-miss analysis, AGENTS.md rule 12) |
+| §4.4: Opnet, 100 nodes all sending and acknowledging, 50 × 50 m at 10 m range, perfect MAC (pp. 83–85) | v2.5.0 anchor: ns-3 802.11, the field kept in ranges (1250 × 1250 m at 250 m), ten flow pairs with reply flows, speeds 1, 5, 10, 20 m/s, 10 seeds | the MAC, the traffic and the seed count changed; each is an input to the anchor-miss analysis (AGENTS.md rule 12) |
 
 ## Anchor candidate
 
