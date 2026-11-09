@@ -3,8 +3,10 @@
 <!-- org-sync:begin badges -->
 [![Licence: GPL-2.0-only, core/ MIT OR GPL-2.0-only](https://img.shields.io/badge/licence-GPL--2.0--only%2C%20core%2F%20MIT%20OR%20GPL--2.0--only-blue)](LICENSING.md)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow)](https://www.conventionalcommits.org)
+[![Colony Arena: Termite](https://img.shields.io/badge/Colony%20Arena-project%20page-orange)](https://swarm-routing.github.io/arena/Termite/)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus)](AGENTS.md)
 [![Runs on ns-3](https://img.shields.io/badge/runs%20on-ns--3-informational)](https://www.nsnam.org)
+[![Built on: ns3-dev](https://img.shields.io/badge/built%20on-ns3--dev%20image-blue?logo=docker)](https://github.com/orgs/swarm-routing/packages/container/package/ns3-dev)
 <!-- org-sync:end badges -->
 
 Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MANETs: routing state rides inside data packets (stigmergy), with no control ants and randomised multipath forwarding. A simulator-agnostic `core/` plus the ns-3 contrib module `termite` on [`swarm-core`](https://github.com/swarm-routing/ns3-swarm-core).
