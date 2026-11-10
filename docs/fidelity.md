@@ -241,7 +241,7 @@ runs tell them apart.
   scaling keeps the neighbour count (about 12.4 against "slightly less than
   thirteen").
 - **Pre-registration of record** ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted by the maintainer
-  on 2026-11-10): hypotheses H1 arm, H2 scenario and H3 power, with their
+  on 2026-11-10, [acceptance](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757485387)): hypotheses H1 arm, H2 scenario and H3 power, with their
   evidence from the committed rows; run S (fixed speeds 25, 50, 125 and
   250 m/s, Termite and AODV, seeds 1..25), run P (the v2.5.0 1 and 20 m/s
   command lines, Termite, seeds 1..30, on `ns3-dev:3.48-optimized`, not pooled
