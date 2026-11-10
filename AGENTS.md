@@ -7,7 +7,7 @@ before changing anything. Org-wide conventions:
 
 ## What this repo is
 
-**Status: `core/` in progress (Phase 5, #6).** Its first slice, the data path of ch. 4 (eq. 4.1 deposit on every packet, promiscuous reception, the forwarded-ID duplicate list, eq. 4.3 forwarding, the dead-end bounce, periodic decay, the versioned header), builds and tests on its own. It started once the fidelity sheet (#4) and the anchor-miss pre-registration ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted 2026-11-10) were in: golden rule 12 is met. Route requests and replies, hello, seed and next-hop failure come next; `ns3/` is still the plan (marked below); update this file in the PR that creates each part.
+**Status: `core/` and `ns3/` in progress (Phase 5, #6).** The core's first slice, the data path of ch. 4 (eq. 4.1 deposit on every packet, promiscuous reception, the forwarded-ID duplicate list, eq. 4.3 forwarding, the dead-end bounce, periodic decay, the versioned header), builds and tests on its own and inside ns-3 as the contrib module `termite`, whose adapter carries it out on swarm-core's `SwarmRoutingBase` with the header on every data packet. It started once the fidelity sheet (#4) and the anchor-miss pre-registration ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted 2026-11-10) were in: golden rule 12 is met. Route requests and replies, hello, seed and next-hop failure come next; until a node can learn a destination it has not heard from (hello, seed or a route request), a fresh network delivers nothing, so the module has no example and no determinism program yet. Update this file in the PR that adds each part.
 
 Termite (Roth & Wicker; GLOBECOM 2003, SIDM 2005, Roth's 2005 Cornell dissertation) as a standalone hexagonal protocol: routing by stigmergy, where routing state rides inside **data** packets, there are no control ants, and forwarding is randomised multipath over a pheromone table. A simulator-agnostic `core/` and an ns-3 `ns3/` adapter (contrib module `termite`) linking against `swarm-core`. It replaces AntHocNet's `termite` comparator arm, whose v2.5.0 anchor **missed** (danieljoppi/AntHocNet#587).
 
@@ -17,10 +17,16 @@ core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR G
   termite-config.h    the ch. 4 constants, each citing its docs/fidelity.md row
   termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
   termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out)
-  test/               the core tests (plain CMake + ctest; the ns-3 suite will run the same list)
-ns3/        (planned) contrib module `termite` (GPL-2.0-only): header codec, adapter, helper, examples, test suite
+  test/               the core tests (plain CMake + ctest; the ns-3 suite runs the same list)
+ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-core
+  model/termite-header.*            the core's header as an ns3::Header, in front of the transport header of every data packet
+  model/termite-routing-protocol.*  the adapter: SwarmRoutingBase carrying out the core's decisions, promiscuous reception
+  helper/termite-helper.*           TermiteHelper (swarm-core's SwarmRoutingHelper)
+  helper/termite-bench-arms.cc      the `termite` arm of ns3-tools' routing-compare (built only beside routing-bench)
+  test/termite-test-suite.cc        `test.py -s termite`: the core tests, header roundtrip and fuzz, the adapter on static topologies, determinism
 docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis
 .github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
+.github/workflows/ns3.yml    ns3/ in ns3-dev on swarm-core main, with routing-bench; the `swarm-core pin` job
 ```
 
 ## Build & verify
@@ -34,17 +40,36 @@ cmake -S core -B build/asan -DTERMITE_CORE_SANITIZE=ON -DSWARM_CORE_DIR=/path/to
 
 It fetches swarm-core at `SWARM_CORE_REF` unless `SWARM_CORE_DIR` names a
 checkout's `core/`; bump the pin together with `core-deps` in
-`.github/workflows/licence.yml` and `SWARM_CORE_REF` in the `Makefile`.
+`.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, and
+`SWARM_CORE_REF` in the `Makefile`. The ns-3 module builds on swarm-core
+`main` instead; ns3.yml's `swarm-core pin` job fails when main's `core/` is no
+longer the pinned one, or when the four places name different SHAs, so a
+swarm-core change is met by a pin bump here.
 
-CI will be [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.github/blob/main/.github/workflows/reusable-ns3-ci.yml) once `ns3/` exists (as in ARA and BeeAdHoc): the module builds inside `ghcr.io/swarm-routing/ns3-dev:latest-{debug,sanitized}` with `dependencies: swarm-core=swarm-routing/ns3-swarm-core@main`. Locally:
+CI for `ns3/` is [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.github/blob/main/.github/workflows/reusable-ns3-ci.yml) (`.github/workflows/ns3.yml`): the module builds inside `ghcr.io/swarm-routing/ns3-dev:latest-{debug,sanitized}` with strict warnings, coverage and SonarQube Cloud, and runs `test.py -s termite`. Locally:
 
 ```bash
 make help    # the org's standard target names: build, test, lint, format, check, clean, shell, ci
 make check   # everything CI gates on
 docker run --rm -v "$PWD:/src/termite:ro" -v "$PWD/../ns3-swarm-core:/src/ns3-swarm-core:ro" \
     ghcr.io/swarm-routing/ns3-dev:latest-debug \
-    ns3-build-contrib --test swarm-core=/src/ns3-swarm-core termite=/src/termite/ns3
+    ns3-build-contrib --strict-warnings --quality-modules termite --test \
+    swarm-core=/src/ns3-swarm-core termite=/src/termite/ns3
 ```
+
+(`make test` does the same with `SWARM_CORE_NS3=<checkout>`, default
+`../ns3-swarm-core`). To build the harness arm and run it in the same
+container, also mount `swarm-routing/ns3-tools` at `/src/ns3-tools`, add
+`routing-bench=/src/ns3-tools/ns3/routing-bench` before `termite=`, and pass
+`--run "routing-compare --scenario=paper --nNodes=20 --time=30 --runs=1
+--protocols=termite"` to `ns3-build-contrib`. CI passes `dependencies:
+swarm-core=swarm-routing/ns3-swarm-core@main` and
+`routing-bench=swarm-routing/ns3-tools@main:ns3/routing-bench` and runs that
+`routing-compare` line as the smoke. Until the core can learn a destination
+it has not heard from (#6), the arm delivers nothing there (PDR 0, every drop
+a route drop); the smoke checks that it registers and runs clean. The
+determinism gate (`determinism:` in ns3.yml) waits for an example that
+delivers; `test.py`'s determinism case covers the adapter meanwhile.
 
 ## Golden rules (invariants — do not break)
 

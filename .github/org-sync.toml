@@ -9,4 +9,4 @@ description = "Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing 
 homepage = "https://swarm-routing.github.io/arena/Termite/"
 topics = ["termite", "stigmergy", "swarm-intelligence", "multipath-routing", "manet", "ad-hoc-routing", "routing-protocol", "ns-3", "network-simulation"]
 ruleset = "protocol"
-required_checks = ["check / org-sync", "headers / licence", "title / title", "core"]
+required_checks = ["check / org-sync", "headers / licence", "title / title", "core", "ci / ns-latest debug", "ci / ns-latest sanitized", "ci / format", "ci / headers / licence", "swarm-core pin"]
