@@ -192,9 +192,9 @@ written "expected" is a hypothesis for #5, not a measurement.
 | ch. 4: seed phase not given | uniform in [0, seed period) | an unrecorded repo choice. Expected effect: none on the trend |
 | scenario §4.4.1: perfect MAC, no errors or collisions, queues modelled (p. 85) | ns-3 802.11 (`rateManager=constant2`), `propagation=range` at 250 m | Expected effect: collisions and hidden terminals lose data and control, and a lost neighbour is found only at the MAC retry limit. On the anchor's range-propagation cells this loss is small: of the packets offered, 0.90 % end at the MAC at 1 m/s and 4.43 % at 20 m/s, against 46.41 % and 46.54 % expiring on TTL (`##DROPID##` rows of `anchor-termite-s{1,20}-v250c.txt`). The 30 % MAC loss in the v2.5.0 family results is the Nakagami fading grid, not the anchor |
 | scenario §4.4.1: every one of the 100 nodes sends 2 packets/s of 64 B to one random destination (p. 85) | 10 pairs (20 of the 100 nodes), 1024 bit/s each way, 64 B packets (fixture) | a fifth of the senders. Expected effect: far less pheromone-laying traffic; 80 nodes are never sources, so most nodes learn a destination only from passing data, replies and seeds (every 30 s, TTL 4), and a column with no new deposit reaches the floor in about 22 to 29 s (cells at 1 or 2), longer with more deposits. Thinner trails mean more random walking at every speed: the stigmergy §4.4 measures is starved |
-| scenario §4.4.1: a reply is returned when a packet arrives, simulating an acknowledgement (p. 85) | an independent reply CBR flow at the same rate, starting 0.25 s after the forward flow | Roth's acknowledgement exists only for a delivered packet and leaves the destination at once, along a trail that just worked; the reply flow is sent regardless and routes by its own trail. Expected effect: at high speed the reverse trail tracks delivery less well; PDR is taken over both directions |
+| scenario §4.4.1: a reply is returned when a packet arrives, simulating an acknowledgement (p. 85) | an independent reply CBR flow at the same rate, starting 0.25 s after the forward flow | Roth's acknowledgement exists only for a delivered packet and leaves the destination at once, along a trail that just worked; the reply flow is sent regardless and routes by its own trail. Expected effect: at high speed the reverse trail tracks delivery less well; PDR is taken over both directions. The arm's README fidelity notes say the anchor uses acknowledged (TCP) traffic; the committed anchor cells ran UDP (`##CONFIG## … transport=udp`) with this reply flow |
 | scenario §4.4.1: 60 s stationary start, then zero pause (p. 85) | `pause=0` from t = 0; flows start at 60 s | Roth's tables form on a static topology before nodes move; the anchor's form while moving. Expected effect: a worse start at high speed, which steepens the trend slightly |
-| scenario §4.4.1: speeds 0, 1, 2, 5, 10 m/s (Table 4.2) | 1, 5, 10, 20 m/s; the rule compares 20 with 1 m/s | the field and range are scaled 25× (next row) but the speeds are not: in ranges per second the anchor's 1–20 m/s is 0.04–0.8 m/s on §4.4's 10 m scale, so the whole sweep sits below §4.4's 1 m/s, and §4.4's 1–10 m/s would be 25–250 m/s here. Expected effect: the anchor probes a much slower topology-change regime than §4.4, where the trend may be flat; this is a scenario hypothesis for #5. Planned (maintainer decision 2026-11-10, [#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6756870202)): #5's pre-registration is to include a re-run with the speeds scaled by the same 25× (§4.4's 0, 1, 2, 5, 10 m/s become 0, 25, 50, 125, 250 m/s), so that a new miss separates protocol from scenario |
+| scenario §4.4.1: speeds 0, 1, 2, 5, 10 m/s (Table 4.2), every node at one speed ([R05] §4.4.1, p. 85) | `--speed` 1, 5, 10, 20 m/s; the rule compares 20 with 1 m/s. Each random-waypoint leg draws its speed from U(1, S): the harness's `--speedMin` defaults to 1 (`routing-bench-harness.cc`, `routing-bench-run.cc`), and the `##CONFIG##` line omits it at 1 | not a fixed speed, and not scaled with the 25× field and range (next row). The time-averaged speed of U(a, b) legs is (b − a)/ln(b/a): 1.00, 2.49, 3.91 and 6.34 m/s for the four cells, which is 0.04, 0.10, 0.16 and 0.25 m/s on §4.4's 10 m scale. The contrast therefore spanned a 6.3× speed ratio, not 20×, and all of it sits below §4.4's 1 m/s; §4.4's 1–10 m/s would be 25–250 m/s here. Expected effect: the anchor probes a much slower topology-change regime than §4.4, where the trend may be flat (#5 hypothesis H2a). Pre-registered ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted 2026-11-10): run S re-runs the anchor at fixed speeds 25, 50, 125 and 250 m/s (`--speedMin` = `--speed`), seeds 1..25; run P repeats the v2.5.0 1 and 20 m/s cells verbatim at seeds 1..30 |
 | scenario Table 4.1: 50 × 50 m, 10 m range, 1 Mbit/s | 1250 × 1250 m at 250 m (the same 5 × 5 ranges), 802.11 | the geometry is kept: about 12.4 neighbours per node ignoring the border, against [R05] p. 90's "slightly less than thirteen". Expected effect: small on density; speed is not scaled with it (previous row) |
 | scenario §4.4: Opnet; runs per point and spread not stated | ns-3.42 optimized, 10 seeds per speed | Expected effect: power. Termite's PDR SD is 7.2 pp at 1 m/s and 3.6 pp at 20 m/s, so a 5 pp fall does not separate from zero at 10 seeds (v2.5.0: −4.91 pp [−10.36, +0.54]) |
 
@@ -234,14 +234,20 @@ runs tell them apart.
   constant, any known column, and a 30 s hold.
 - **Scenario deviations**: an 802.11 MAC instead of a perfect one; 20 of the
   100 nodes sending instead of all 100; a reply flow instead of a
-  per-delivery acknowledgement; speeds not scaled with the 25× field, so
-  the anchor's 1–20 m/s is 0.04–0.8 m/s on §4.4's scale (§4.4 ran 0–10 m/s);
-  no
-  stationary start; ns-3.42 instead of Opnet. The field scaling keeps the
-  neighbour count (about 12.4 against "slightly less than thirteen").
-  Planned for #5's pre-registration ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6756870202)): a re-run with the speeds scaled by
-  the same 25×. Nothing is pre-registered yet: golden rule 12 still needs
-  #5's hypotheses, runs and decision rule before `core/`.
+  per-delivery acknowledgement; speeds not scaled with the 25× field and
+  drawn per leg from U(1, S), not fixed, so the anchor's time-averaged
+  1–6.34 m/s is 0.04–0.25 m/s on §4.4's scale (§4.4 ran 0–10 m/s, every node
+  at one speed); no stationary start; ns-3.42 instead of Opnet. The field
+  scaling keeps the neighbour count (about 12.4 against "slightly less than
+  thirteen").
+- **Pre-registration of record** ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted by the maintainer
+  on 2026-11-10): hypotheses H1 arm, H2 scenario and H3 power, with their
+  evidence from the committed rows; run S (fixed speeds 25, 50, 125 and
+  250 m/s, Termite and AODV, seeds 1..25), run P (the v2.5.0 1 and 20 m/s
+  cells verbatim, Termite, seeds 1..30), stage 2 only on an S miss; the
+  rule is a Welch 95 % CI of highest minus lowest speed on both PDR and
+  delivered-data hops, with fixed seed counts. RREQ and RREP path lengths
+  are reported for this repository's arm (#6) only.
 - **Metric match**: §4.4's goodput counts data packets ([R05] p. 86); the
   anchor's PDR is FlowMonitor's over all 20 flows, reply flows included.
   §4.4's path length is over delivered data, as the anchor's `##ROUTE##` hop
@@ -249,7 +255,9 @@ runs tell them apart.
 - **Power**: §4.4 states no runs per point and no spread, and no number for
   either metric, so the expected effect size has to come from the committed
   v2.5.0 rows (`results/cells/anchor-termite-s{1,5,10,20}-v250c.txt`), not from
-  the paper.
+  the paper. Done in the pre-registration: at the observed effect both gated
+  metrics pass with 80 % probability at about 30 seeds per speed (0.37 at the
+  10 seeds v2.5.0 ran).
 - **Absolute level**: the arm delivered 42–47 % at every speed, against
   AODV's 67–78 % on the same cells. §4.4 gives no number to compare that with;
   ch. 5's 96 % for γPF at 10 m/s ([R05] p. 108) is a different version on a
