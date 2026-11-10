@@ -2,3 +2,11 @@
 kind = "protocol"
 title = "Termite"
 dual = ["core/"]
+
+[settings]
+# GitHub settings as code: swarm-routing/.github tools/repo-settings (#117).
+description = "Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MANETs: routing by stigmergy, pheromone carried inside data packets, no control ants, randomised multipath forwarding. A simulator-agnostic C++ core and an ns-3 contrib module on swarm-core."
+homepage = "https://swarm-routing.github.io/arena/Termite/"
+topics = ["termite", "stigmergy", "swarm-intelligence", "multipath-routing", "manet", "ad-hoc-routing", "routing-protocol", "ns-3", "network-simulation"]
+ruleset = "protocol"
+required_checks = ["check / org-sync", "headers / licence", "title / title"]
