@@ -60,6 +60,7 @@ bool Router::knows(NodeAddress destination) const {
 
 Decision Router::originate(NodeAddress destination) {
     if (destination == self_) return Decision::deliver();
+    if (destination == kInvalidAddress) return Decision::drop();
     PacketHeader header;
     header.source = self_;
     header.destination = destination;
@@ -74,7 +75,11 @@ Decision Router::originate(NodeAddress destination) {
 
 Decision Router::onReceive(const PacketHeader& header) {
     const NodeAddress from = header.previousHop;
-    if (from == self_ || from == kInvalidAddress) return Decision::drop();
+    // A frame naming no previous hop, source or destination describes no
+    // real node: it deposits nothing and goes nowhere.
+    if (from == self_ || from == kInvalidAddress || header.source == kInvalidAddress ||
+        header.destination == kInvalidAddress)
+        return Decision::drop();
     const bool addressed = header.nextHop == self_;
     const Key key{header.source, header.messageId};
 

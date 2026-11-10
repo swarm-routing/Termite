@@ -38,6 +38,15 @@ void TestDepositOnReception(Checker& c) {
     c.check(near(t.get(2, 1), 1.0) && near(t.get(2, 2), 2.0),
             "its column covers every neighbour, then takes the deposit");
 
+    const std::size_t cells = t.size();
+    c.check(h.router.onReceive(dataFrame(kInvalidAddress, 0, 1, 0, 90)).action ==
+                    RouteAction::Drop &&
+                h.router.onReceive(dataFrame(9, kInvalidAddress, 1, 0, 91)).action ==
+                    RouteAction::Drop &&
+                h.router.originate(kInvalidAddress).action == RouteAction::Drop,
+            "an invalid source or destination is dropped");
+    c.check(t.size() == cells && !h.router.knows(kInvalidAddress), "and creates no column for it");
+
     Config capped;
     capped.pheromoneCeiling = 3.0;
     Harness k(0, capped);
