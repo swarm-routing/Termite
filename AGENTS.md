@@ -7,17 +7,34 @@ before changing anything. Org-wide conventions:
 
 ## What this repo is
 
-**Status: empty, populated in Phase 5** (swarm-routing/.github#51; org ROADMAP "Phase 5: Termite"). The layout below is the plan; update this file in the PR that creates each part.
+**Status: `core/` in progress (Phase 5, #6).** Its first slice, the data path of ch. 4 (eq. 4.1 deposit on every packet, promiscuous reception, the forwarded-ID duplicate list, eq. 4.3 forwarding, the dead-end bounce, periodic decay, the versioned header), builds and tests on its own. It started once the fidelity sheet (#4) and the anchor-miss pre-registration ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted 2026-11-10) were in: golden rule 12 is met. Route requests and replies, hello, seed and next-hop failure come next; `ns3/` is still the plan (marked below); update this file in the PR that creates each part.
 
 Termite (Roth & Wicker; GLOBECOM 2003, SIDM 2005, Roth's 2005 Cornell dissertation) as a standalone hexagonal protocol: routing by stigmergy, where routing state rides inside **data** packets, there are no control ants, and forwarding is randomised multipath over a pheromone table. A simulator-agnostic `core/` and an ns-3 `ns3/` adapter (contrib module `termite`) linking against `swarm-core`. It replaces AntHocNet's `termite` comparator arm, whose v2.5.0 anchor **missed** (danieljoppi/AntHocNet#587).
 
 ```
-core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR GPL-2.0-only, core/LICENSE)
-ns3/        contrib module `termite` (GPL-2.0-only): header codec, adapter, helper, examples, test suite
+core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR GPL-2.0-only, core/LICENSE),
+            on swarm-core's dual-licensed core/ primitives (pinned: SWARM_CORE_REF in core/CMakeLists.txt)
+  termite-config.h    the ch. 4 constants, each citing its docs/fidelity.md row
+  termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
+  termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out)
+  test/               the core tests (plain CMake + ctest; the ns-3 suite will run the same list)
+ns3/        (planned) contrib module `termite` (GPL-2.0-only): header codec, adapter, helper, examples, test suite
 docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis
+.github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
 ```
 
 ## Build & verify
+
+`core/` builds and tests alone, with no ns-3 tree (CI: `.github/workflows/core.yml`):
+
+```bash
+make core-test    # cmake -S core -B build/core && cmake --build build/core && ctest --test-dir build/core
+cmake -S core -B build/asan -DTERMITE_CORE_SANITIZE=ON -DSWARM_CORE_DIR=/path/to/ns3-swarm-core/core   # a local swarm-core
+```
+
+It fetches swarm-core at `SWARM_CORE_REF` unless `SWARM_CORE_DIR` names a
+checkout's `core/`; bump the pin together with `core-deps` in
+`.github/workflows/licence.yml` and `SWARM_CORE_REF` in the `Makefile`.
 
 CI will be [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.github/blob/main/.github/workflows/reusable-ns3-ci.yml) once `ns3/` exists (as in ARA and BeeAdHoc): the module builds inside `ghcr.io/swarm-routing/ns3-dev:latest-{debug,sanitized}` with `dependencies: swarm-core=swarm-routing/ns3-swarm-core@main`. Locally:
 

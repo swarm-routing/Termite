@@ -16,7 +16,7 @@
 
 Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MANETs: routing state rides inside data packets (stigmergy), with no control ants and randomised multipath forwarding. A simulator-agnostic `core/` plus the ns-3 contrib module `termite` on [`swarm-core`](https://github.com/swarm-routing/ns3-swarm-core).
 
-**Status: empty**, populated in the org's Phase 5 ([.github#51](https://github.com/swarm-routing/.github/issues/51)). See [AGENTS.md](AGENTS.md) for the plan.
+**Status:** the org's Phase 5 ([.github#51](https://github.com/swarm-routing/.github/issues/51)); `core/` is being written (the data path first, #6), the ns-3 module follows. See [AGENTS.md](AGENTS.md) for the plan.
 
 ## Epics
 
