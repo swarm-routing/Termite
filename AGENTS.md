@@ -16,10 +16,10 @@ core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR G
             on swarm-core's dual-licensed core/ primitives (pinned: SWARM_CORE_REF in core/CMakeLists.txt)
   termite-config.h    the ch. 4 constants, each citing its docs/fidelity.md row
   termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
-  termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out)
+  termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out); reports through swarm-core's IRouterObserver (docs/observer.md)
   test/               the core tests (plain CMake + ctest; the ns-3 suite will run the same list)
 ns3/        (planned) contrib module `termite` (GPL-2.0-only): header codec, adapter, helper, examples, test suite
-docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis
+docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis; observer.md (what the core reports, how data headers are counted)
 .github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
 ```
 

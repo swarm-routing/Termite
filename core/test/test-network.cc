@@ -12,10 +12,12 @@ namespace {
 
 /// A 3 x 3 grid, nodes 0..8 row by row, trails towards node 0 laid along
 /// four paths; then every node sends to 0 and 0 answers each.
-std::vector<std::string> runGrid(std::uint64_t seed, int* delivered, int* ended) {
+std::vector<std::string> runGrid(std::uint64_t seed, int* delivered, int* ended,
+                                 swarm::core::IRouterObserver* observer = nullptr) {
     Config cfg;
     cfg.sensitivity = 1.0;  // a flat F, so the draws matter
     Network net(seed, cfg);
+    net.observe(observer);
     for (int r = 0; r < 3; ++r) {
         for (int col = 0; col < 3; ++col) {
             const int n = 3 * r + col;
@@ -43,6 +45,11 @@ std::vector<std::string> runGrid(std::uint64_t seed, int* delivered, int* ended)
 }
 
 }  // namespace
+
+std::vector<std::string> RunObservedGrid(std::uint64_t seed, swarm::core::IRouterObserver* obs) {
+    int delivered = 0, ended = 0;
+    return runGrid(seed, &delivered, &ended, obs);
+}
 
 void TestDeliveryOnALine(Checker& c) {
     Network net(1);

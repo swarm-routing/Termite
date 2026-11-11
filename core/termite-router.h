@@ -22,6 +22,7 @@
 #include "termite-packet.h"
 
 #include "swarm-dedup-history.h"
+#include "swarm-observer.h"
 #include "swarm-pheromone-table.h"
 #include "swarm-ports.h"
 #include "swarm-route-decision.h"
@@ -36,6 +37,11 @@
 namespace termite::core {
 
 using Decision = swarm::core::RouteDecision<PacketHeader>;
+
+/// Bytes one pheromone cell takes in the state size reported to the observer:
+/// the (destination, neighbour) key and the double value.
+inline constexpr std::uint32_t kStateBytesPerEntry =
+    static_cast<std::uint32_t>(2 * sizeof(NodeAddress) + sizeof(double));
 
 /// The IDs this node has forwarded and the neighbour each went to: [R05]
 /// §4.3.2's duplicate list, holding forwarded IDs only (maintainer decision
@@ -67,6 +73,11 @@ public:
     /// `rng` and `timers` must outlive the router.
     Router(NodeAddress self, const Config& config, swarm::core::IRng& rng,
            swarm::core::ITimerScheduler& timers);
+
+    /// Reports to `observer` (swarm-core's IRouterObserver); null, the
+    /// default, reports nothing. It must outlive the router and only reads:
+    /// no decision, draw or table change depends on it (org rule 5).
+    void setObserver(swarm::core::IRouterObserver* observer) { observer_ = observer; }
 
     /// Starts the periodic decay (eq. 4.2): one tick every decay period.
     void start();
@@ -102,6 +113,16 @@ private:
     using Key = ForwardedList::Key;
 
     Decision forward(PacketHeader header, NodeAddress arrival);
+    Decision receive(const PacketHeader& header);
+    /// Reports a data decision (docs/observer.md) and returns it.
+    Decision observed(const PacketHeader& header, Decision d);
+    /// The table writes, each reporting an entry that appears or disappears
+    /// (onRouteChanged) so the observer sees every change.
+    bool setCell(NodeAddress dest, NodeAddress neighbor, double value);
+    void eraseNeighborCells(NodeAddress neighbor);
+    void eraseColumn(NodeAddress dest);
+    /// onStateSize when the entry count differs from the last report.
+    void reportState();
     /// Eq. 4.1 once per packet per node: P(previousHop, source) += γc.
     void depositOnce(const PacketHeader& header);
     bool addNeighbor(NodeAddress neighbor);
@@ -118,6 +139,8 @@ private:
     swarm::core::DedupHistory deposited_;
     std::uint32_t nextMessageId_ = 0;
     double retainPerPeriod_;
+    swarm::core::IRouterObserver* observer_ = nullptr;
+    std::size_t reportedEntries_ = 0;
 };
 
 }  // namespace termite::core

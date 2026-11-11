@@ -24,8 +24,10 @@
 #ifndef TERMITE_CORE_PACKET_H
 #define TERMITE_CORE_PACKET_H
 
+#include "swarm-observer.h"
 #include "swarm-types.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -51,6 +53,17 @@ enum class PacketType : std::uint8_t {
     RouteRequest = 4,
     RouteReply = 5,
 };
+
+/// The names of the type bytes, for swarm-core's observer: readers print
+/// "RREQ", not "4" (swarm::core::findKindName). Data is named too, but a data
+/// packet's header is data overhead, never reported as control (docs/observer.md).
+inline constexpr std::array<swarm::core::KindName, 5> kPacketKindNames{{
+    {static_cast<std::uint8_t>(PacketType::Data), "DATA"},
+    {static_cast<std::uint8_t>(PacketType::Hello), "HELLO"},
+    {static_cast<std::uint8_t>(PacketType::Seed), "SEED"},
+    {static_cast<std::uint8_t>(PacketType::RouteRequest), "RREQ"},
+    {static_cast<std::uint8_t>(PacketType::RouteReply), "RREP"},
+}};
 
 struct PacketHeader {
     PacketType type = PacketType::Data;
