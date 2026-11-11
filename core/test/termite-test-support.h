@@ -136,10 +136,14 @@ public:
         links_[a].insert(b);
         links_[b].insert(a);
     }
+    /// Every router created from now on reports to `observer` (null: none).
+    void observe(swarm::core::IRouterObserver* observer) { observer_ = observer; }
     Router& node(NodeAddress a) {
         auto it = routers_.find(a);
-        if (it == routers_.end())
+        if (it == routers_.end()) {
             it = routers_.emplace(a, std::make_unique<Router>(a, config_, rng_, events_)).first;
+            it->second->setObserver(observer_);
+        }
         return *it->second;
     }
     /// Lays a trail toward path[0] along `path`, as a packet from path[0]
@@ -185,6 +189,7 @@ private:
     SeededRng rng_;
     Config config_;
     swarm::core::Time linkDelay_;
+    swarm::core::IRouterObserver* observer_ = nullptr;
     std::map<NodeAddress, std::unique_ptr<Router>> routers_;
     std::map<NodeAddress, std::set<NodeAddress>> links_;
     std::vector<std::string> trace_;

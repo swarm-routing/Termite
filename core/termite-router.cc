@@ -59,9 +59,10 @@ bool Router::knows(NodeAddress destination) const {
 }
 
 Decision Router::originate(NodeAddress destination) {
-    if (destination == self_) return Decision::deliver();
-    if (destination == kInvalidAddress) return Decision::drop();
     PacketHeader header;
+    header.destination = destination;
+    if (destination == self_) return observed(header, Decision::deliver());
+    if (destination == kInvalidAddress) return observed(header, Decision::drop());
     header.source = self_;
     header.destination = destination;
     header.previousHop = self_;
@@ -70,10 +71,26 @@ Decision Router::originate(NodeAddress destination) {
     // Fidelity "ch. 4: no next hop although the destination is known": the
     // source records its own packet as forwarded, so a bounce back to it is
     // the exempt return, not a duplicate.
-    return forward(header, kInvalidAddress);
+    return observed(header, forward(header, kInvalidAddress));
 }
 
 Decision Router::onReceive(const PacketHeader& header) {
+    // A control packet is reported as received (its encoded size) once the
+    // router is handed it; a data packet's header is data overhead.
+    if (observer_ && header.type != PacketType::Data)
+        observer_->onControlReceived(static_cast<std::uint8_t>(header.type), kPacketWireSize);
+    Decision d = receive(header);
+    reportState();
+    return header.type == PacketType::Data ? observed(header, std::move(d)) : d;
+}
+
+Decision Router::observed(const PacketHeader& header, Decision d) {
+    if (observer_ && d.action != RouteAction::None)
+        observer_->onDataDecision(header.destination, d.action);
+    return d;
+}
+
+Decision Router::receive(const PacketHeader& header) {
     const NodeAddress from = header.previousHop;
     // A frame naming no previous hop, source or destination describes no
     // real node: it deposits nothing and goes nowhere.
@@ -94,7 +111,7 @@ Decision Router::onReceive(const PacketHeader& header) {
             // gives no amount (eq. 4.1 only adds); repo choice (#6): the cell
             // drops to the floor, the least pheromone a known cell can hold.
             if (table_.contains(header.destination, from))
-                table_.set(header.destination, from, config_.pheromoneFloor);
+                setCell(header.destination, from, config_.pheromoneFloor);
             return forward(header, from);
         }
         return addressed ? Decision::drop() : Decision::none();
@@ -158,7 +175,7 @@ void Router::depositOnce(const PacketHeader& header) {
     if (header.source == self_ || !addColumn(header.source)) return;
     // Eq. 4.1 with the ceiling of §4.2.4.
     const double value = table_.get(header.source, header.previousHop) + config_.deposit;
-    table_.set(header.source, header.previousHop, std::min(value, config_.pheromoneCeiling));
+    setCell(header.source, header.previousHop, std::min(value, config_.pheromoneCeiling));
 }
 
 bool Router::addNeighbor(NodeAddress neighbor) {
@@ -174,10 +191,10 @@ bool Router::addNeighbor(NodeAddress neighbor) {
     if (table_.size() + needed > table_.capacity()) return false;
     neighbors_.insert(neighbor);
     for (NodeAddress d : destinations)
-        table_.set(d, neighbor, config_.initialPheromone);
+        setCell(d, neighbor, config_.initialPheromone);
     if (newColumn) {
         for (NodeAddress n : neighbors_)
-            table_.set(neighbor, n, config_.initialPheromone);
+            setCell(neighbor, n, config_.initialPheromone);
     }
     return true;
 }
@@ -187,7 +204,7 @@ bool Router::addColumn(NodeAddress destination) {
     if (knows(destination)) return true;
     if (table_.size() + neighbors_.size() > table_.capacity()) return false;
     for (NodeAddress n : neighbors_)
-        table_.set(destination, n, config_.initialPheromone);
+        setCell(destination, n, config_.initialPheromone);
     return true;
 }
 
@@ -197,7 +214,8 @@ void Router::decay() {
     // Fidelity "ch. 4: periodic decay", eq. 4.2, clamped at the floor (§4.2.4).
     for (NodeAddress d : destinations) {
         for (const auto& e : table_.entries(d))
-            table_.set(d, e.neighbor, std::max(e.value * retainPerPeriod_, floor));
+            table_.set(d, e.neighbor,
+                       std::max(e.value * retainPerPeriod_, floor));  // existing cell: no add
     }
     // Fidelity "ch. 4: a destination column is removed ...": a row all at the
     // floor removes the neighbour; a column all at the floor goes, but a
@@ -209,7 +227,7 @@ void Router::decay() {
         if (decayed) decayedRows.push_back(n);
     }
     for (NodeAddress n : decayedRows) {
-        table_.eraseNeighbor(n);
+        eraseNeighborCells(n);
         neighbors_.erase(n);
     }
     for (NodeAddress d : destinations) {
@@ -217,13 +235,48 @@ void Router::decay() {
         const auto column = table_.entries(d);
         if (std::all_of(column.begin(), column.end(),
                         [floor](const auto& e) { return e.value <= floor; }))
-            table_.eraseDestination(d);
+            eraseColumn(d);
     }
+    reportState();
 }
 
 void Router::onLinkLost(NodeAddress neighbor) {
     // Fidelity "ch. 4: a neighbour lost by communications failure".
-    if (neighbors_.erase(neighbor) != 0) table_.eraseNeighbor(neighbor);
+    if (neighbors_.erase(neighbor) != 0) eraseNeighborCells(neighbor);
+    reportState();
+}
+
+bool Router::setCell(NodeAddress dest, NodeAddress neighbor, double value) {
+    const bool added = !table_.contains(dest, neighbor);
+    if (!table_.set(dest, neighbor, value)) return false;
+    if (added && observer_) observer_->onRouteChanged(dest, neighbor, true);
+    return true;
+}
+
+void Router::eraseNeighborCells(NodeAddress neighbor) {
+    std::vector<NodeAddress> dests;
+    if (observer_) {
+        for (NodeAddress d : table_.destinations())
+            if (table_.contains(d, neighbor)) dests.push_back(d);
+    }
+    table_.eraseNeighbor(neighbor);
+    for (NodeAddress d : dests)
+        observer_->onRouteChanged(d, neighbor, false);
+}
+
+void Router::eraseColumn(NodeAddress dest) {
+    std::vector<swarm::core::PheromoneTable::Entry> cells;
+    if (observer_) cells = table_.entries(dest);
+    table_.eraseDestination(dest);
+    for (const auto& e : cells)
+        observer_->onRouteChanged(dest, e.neighbor, false);
+}
+
+void Router::reportState() {
+    if (!observer_ || table_.size() == reportedEntries_) return;
+    reportedEntries_ = table_.size();
+    observer_->onStateSize(static_cast<std::uint32_t>(reportedEntries_),
+                           static_cast<std::uint32_t>(reportedEntries_) * kStateBytesPerEntry);
 }
 
 }  // namespace termite::core

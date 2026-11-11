@@ -16,7 +16,7 @@ core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR G
             on swarm-core's dual-licensed core/ primitives (pinned: SWARM_CORE_REF in core/CMakeLists.txt)
   termite-config.h    the ch. 4 constants, each citing its docs/fidelity.md row
   termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
-  termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out)
+  termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out); reports through swarm-core's IRouterObserver (docs/observer.md)
   test/               the core tests (plain CMake + ctest; the ns-3 suite runs the same list)
 ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-core
   model/termite-header.*            the core's header as an ns3::Header, in front of the transport header of every data packet
@@ -24,9 +24,9 @@ ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-co
   helper/termite-helper.*           TermiteHelper (swarm-core's SwarmRoutingHelper)
   helper/termite-bench-arms.cc      the `termite` arm of ns3-tools' routing-compare (built only beside routing-bench)
   test/termite-test-suite.cc        `test.py -s termite`: the core tests, header roundtrip and fuzz, the adapter on static topologies, determinism
-docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis
+docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis; observer.md (what the core reports, how data headers are counted)
 .github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
-.github/workflows/ns3.yml    ns3/ in ns3-dev on swarm-core main, with routing-bench; the `swarm-core pin` job
+.github/workflows/ns3.yml    ns3/ in ns3-dev on swarm-core main, with routing-bench
 ```
 
 ## Build & verify
@@ -42,7 +42,7 @@ It fetches swarm-core at `SWARM_CORE_REF` unless `SWARM_CORE_DIR` names a
 checkout's `core/`; bump the pin together with `core-deps` in
 `.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, and
 `SWARM_CORE_REF` in the `Makefile`. The ns-3 module builds on swarm-core
-`main` instead; ns3.yml's `swarm-core pin` job fails when main's `core/` is no
+`main` instead; the `swarm-core / pin` check (`swarm-core-pin.yml`) fails when main's `core/` is no
 longer the pinned one, or when the four places name different SHAs, so a
 swarm-core change is met by a pin bump here.
 
@@ -84,16 +84,19 @@ Org-wide (1–9), then this repo's own.
    `.h`/`.hpp`/`.cc`/`.cpp`/`.py`/`.sh` starts with
    `// Copyright (c) 2026 Daniel Joppi (https://github.com/swarm-routing)` +
    `// SPDX-License-Identifier: <MIT OR GPL-2.0-only | GPL-2.0-only>` (`#`
-   comments where needed), matching its directory in `LICENSING.md`. CI
-   (`reusable-licence-check.yml`) checks it. A new directory gets its row in
-   `LICENSING.md` in the same PR.
+   comments where needed), matching its directory in `LICENSING.md`; an
+   outside contributor may add their own `Copyright (c) <year> <Name>` line
+   beneath the org line, never replace it, and signs off every commit (DCO,
+   CONTRIBUTING "Outside contributions"). CI (`reusable-licence-check.yml`)
+   checks it. A new directory gets its row in `LICENSING.md` in the same PR.
 2. **The licence boundary only goes one way.** GPL code may use the dual
    parts; dual code never pulls GPL-only code in: a `core/` file includes only
    the C++ standard library, other `core/` files and the dual-licensed `core/`
    of a dependency pinned by commit and declared as the `core-deps` input of
-   whichever workflow runs the licence check (`licence.yml` calling
-   `reusable-licence-check.yml`, or `ci.yml` calling `reusable-ns3-ci.yml`,
-   which forwards it), with `core-roots` naming the repo's own `core/`
+   every workflow that runs the licence check (one calling
+   `reusable-licence-check.yml`, or one calling `reusable-ns3-ci.yml`, which
+   forwards it; workflow file names differ per repo), each with the same pin,
+   with `core-roots` naming the repo's own `core/`
    (without it the check skips core includes; a protocol's `core/` on
    swarm-core's; CI checks it, `check-headers.py --core-dep`), and a dual script imports no GPL-only code. Code coming from AntHocNet keeps its
    licence: its `core/`/`tools/` (dual) may land in dual or GPL paths here; its
@@ -188,10 +191,9 @@ Org-wide (1–9), then this repo's own.
   up-to-date branch and the required checks. Bots push `bot/<name>` branches
   and open PRs; a release is the bump PR from `bot/release`, tagged after it
   merges (CONTRIBUTING "Cutting a release").
-- When a PR falls behind `main`, update it from a checkout of the repo (`gh`
-  fills `{owner}` and `{repo}`; set `PR` to the PR number):
-  `PR=123; gh api -X PUT "repos/{owner}/{repo}/pulls/$PR/update-branch"`.
-  Then merge PRs one at a time, each after its CI on the updated branch. Never force-push a
+- When a PR falls behind `main`, update it
+  (`gh api -X PUT "repos/<owner>/<repo>/pulls/<n>/update-branch"`, with
+  `<owner>/<repo>` the PR's base repository and `<n>` its number) and merge PRs one at a time, each after its CI on the updated branch. Never force-push a
   branch someone else pushed. A behind `bot/release` PR is the exception:
   dispatch the release `bump` again, so the version and changelog are rebuilt
   on the new `main`.
