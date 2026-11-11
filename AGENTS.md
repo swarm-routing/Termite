@@ -3,13 +3,13 @@
 Operational guide for LLM agents working in `swarm-routing/termite`. Read this
 before changing anything. Org-wide conventions:
 [`swarm-routing/.github` CONTRIBUTING.md](https://github.com/swarm-routing/.github/blob/main/CONTRIBUTING.md). Shape and rules mirror
-[AntHocNet's AGENTS.md](https://github.com/danieljoppi/AntHocNet/blob/main/AGENTS.md), the source repository.
+[AntHocNet's AGENTS.md](https://github.com/swarm-routing/AntHocNet/blob/main/AGENTS.md), the source repository.
 
 ## What this repo is
 
 **Status: `core/` and `ns3/` in progress (Phase 5, #6).** The core's first slice, the data path of ch. 4 (eq. 4.1 deposit on every packet, promiscuous reception, the forwarded-ID duplicate list, eq. 4.3 forwarding, the dead-end bounce, periodic decay, the versioned header), builds and tests on its own and inside ns-3 as the contrib module `termite`, whose adapter carries it out on swarm-core's `SwarmRoutingBase` with the header on every data packet. It started once the fidelity sheet (#4) and the anchor-miss pre-registration ([#5](https://github.com/swarm-routing/Termite/issues/5#issuecomment-6757193490), accepted 2026-11-10) were in: golden rule 12 is met. Route requests and replies, hello, seed and next-hop failure come next; until a node can learn a destination it has not heard from (hello, seed or a route request), a fresh network delivers nothing, so the module has no example and no determinism program yet. Update this file in the PR that adds each part.
 
-Termite (Roth & Wicker; GLOBECOM 2003, SIDM 2005, Roth's 2005 Cornell dissertation) as a standalone hexagonal protocol: routing by stigmergy, where routing state rides inside **data** packets, there are no control ants, and forwarding is randomised multipath over a pheromone table. A simulator-agnostic `core/` and an ns-3 `ns3/` adapter (contrib module `termite`) linking against `swarm-core`. It replaces AntHocNet's `termite` comparator arm, whose v2.5.0 anchor **missed** (danieljoppi/AntHocNet#587).
+Termite (Roth & Wicker; GLOBECOM 2003, SIDM 2005, Roth's 2005 Cornell dissertation) as a standalone hexagonal protocol: routing by stigmergy, where routing state rides inside **data** packets, there are no control ants, and forwarding is randomised multipath over a pheromone table. A simulator-agnostic `core/` and an ns-3 `ns3/` adapter (contrib module `termite`) linking against `swarm-core`. It replaces AntHocNet's `termite` comparator arm, whose v2.5.0 anchor **missed** (swarm-routing/AntHocNet#587).
 
 ```
 core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR GPL-2.0-only, core/LICENSE),
@@ -77,8 +77,8 @@ Org-wide (1–9), then this repo's own.
 
 <!-- org-sync:begin org-rules -->
 1. **Licensing per directory, as AntHocNet** ([`LICENSING.md`](LICENSING.md);
-   AntHocNet [LICENSING.md](https://github.com/danieljoppi/AntHocNet/blob/main/LICENSING.md),
-   [ADR-0028](https://github.com/danieljoppi/AntHocNet/blob/main/docs/adr/0028-core-is-dual-licensed.md)). A
+   AntHocNet [LICENSING.md](https://github.com/swarm-routing/AntHocNet/blob/main/LICENSING.md),
+   [ADR-0028](https://github.com/swarm-routing/AntHocNet/blob/main/docs/adr/0028-core-is-dual-licensed.md)). A
    simulator-free `core/` and the standalone tooling are `MIT OR GPL-2.0-only`;
    ns-3 modules, the site, docs and data are `GPL-2.0-only`. Every original
    `.h`/`.hpp`/`.cc`/`.cpp`/`.py`/`.sh` starts with
@@ -143,7 +143,7 @@ Org-wide (1–9), then this repo's own.
 
 <!-- org-sync:begin conventions -->
 - Issues follow the org taxonomy ([CONTRIBUTING.md](https://github.com/swarm-routing/.github/blob/main/CONTRIBUTING.md#issues), from
-  [AntHocNet ADR-0013](https://github.com/danieljoppi/AntHocNet/blob/main/docs/adr/0013-track-bugs-and-findings-as-issues.md)): one type label
+  [AntHocNet ADR-0013](https://github.com/swarm-routing/AntHocNet/blob/main/docs/adr/0013-track-bugs-and-findings-as-issues.md)): one type label
   (`bug`/`enhancement`/`chore`/`documentation`/`verification`, plus `epic` for
   umbrellas), area label(s) (`protocol`/`adapter`/`ns3`/`benchmark`/
   `observability`/`packaging`/`learn-site`/`literature`), one `model:*`
@@ -262,7 +262,7 @@ here is undone by the next `org_sync.py apply`).
 | You want to… | Go to |
 |--------------|-------|
 | The org's invariants, labels, issue shape | [`swarm-routing/.github` CONTRIBUTING.md](https://github.com/swarm-routing/.github/blob/main/CONTRIBUTING.md) |
-| The arm being promoted (GPL-2.0-only) | AntHocNet `ns3/baselines/adaptive/model/termite-routing-protocol.{h,cc}`, its README fidelity notes, `ns3/tools/fixtures/termite/termite-anchor.flows`; danieljoppi/AntHocNet#587 |
+| The arm being promoted (GPL-2.0-only) | AntHocNet `ns3/baselines/adaptive/model/termite-routing-protocol.{h,cc}`, its README fidelity notes, `ns3/tools/fixtures/termite/termite-anchor.flows`; swarm-routing/AntHocNet#587 |
 | The v2.5.0 result and the anchor miss | AntHocNet `docs/benchmarks/v2.5.0-comparators.md` |
 | The plan and exit criteria | swarm-routing/.github#51, org ROADMAP "Phase 5: Termite" |
 | Shared primitives (pheromone table, evaporation, roulette) | `swarm-routing/ns3-swarm-core` |
