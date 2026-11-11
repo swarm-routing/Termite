@@ -41,8 +41,13 @@ TypeId RoutingProtocol::GetTypeId() {
                             "RouteAction byte, next hop).",
                             MakeTraceSourceAccessor(&RoutingProtocol::m_dataTrace),
                             "ns3::termite::RoutingProtocol::DataCallback");
-    // The packet kinds' names for the observer's ControlTx/ControlRx readers (#41).
-    SwarmRoutingBase::SetKindNames(tid, core::kPacketKindNames);
+    // The packet kinds' names for the observer's ControlTx/ControlRx readers (#41),
+    // registered once with the TypeId: a table set later through
+    // SwarmRoutingHelper::SetKindNames replaces it and is not reset here.
+    [[maybe_unused]] static const bool kindNames = [] {
+        SwarmRoutingBase::SetKindNames(tid, core::kPacketKindNames);
+        return true;
+    }();
     return tid;
 }
 
