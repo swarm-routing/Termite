@@ -114,7 +114,14 @@ bool RoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header& header,
     bool control = false;
     if (header.GetProtocol() == kUdpProtocol) {
         UdpHeader udp;
-        control = p->PeekHeader(udp) && udp.GetDestinationPort() == kTermitePort;
+        // A control packet leaves a control socket bound to kTermitePort, so
+        // both its ports are kTermitePort and its first byte is 0x15. A data
+        // packet from a neighbour starts with the Termite header instead,
+        // whose first byte is kPacketWireVersion: the destination port alone
+        // would misread a source address's low bytes as the port.
+        static_assert(core::kPacketWireVersion != (kTermitePort >> 8));
+        control = p->PeekHeader(udp) && udp.GetSourcePort() == kTermitePort &&
+                  udp.GetDestinationPort() == kTermitePort;
     }
     // Control packets, broadcast and multicast are the base's.
     if (!m_router || !ipv4 || control || dst.IsBroadcast() || dst.IsMulticast()) {

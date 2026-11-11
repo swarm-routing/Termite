@@ -198,7 +198,9 @@ constexpr uint16_t kIpv4EtherType = 0x0800;
 /// trails, a data sink on every node, and a trace of every data decision.
 class Net {
 public:
-    Net(const std::vector<Vector>& positions, uint32_t seed) {
+    /// `first` is the host part of node 0's address in 10.1.<subnet>.0/24.
+    Net(const std::vector<Vector>& positions, uint32_t seed, const char* subnet = "10.1.1.0",
+        const char* first = "0.0.0.1") {
         SwarmCoreSeed(seed);
         m_nodes.Create(positions.size());
         MobilityHelper mobility;
@@ -227,7 +229,7 @@ public:
         TermiteHelper termite;
         termite.Install(m_nodes);  // the IPv4 stack brings the packet-socket factory
         Ipv4AddressHelper a;
-        a.SetBase("10.1.1.0", "255.255.255.0");
+        a.SetBase(subnet, "255.255.255.0", first);
         m_ifs = a.Assign(m_devs);
         // Every stream pinned, so a second run in this process draws as the first.
         int64_t stream = termite.AssignStreams(m_nodes, 0);
@@ -432,6 +434,27 @@ private:
     }
 };
 
+/// A data packet's payload starts with the Termite header, whose bytes 2-3 are
+/// the low bytes of the source address: for 10.1.166.21 they read 0x15A6, the
+/// control port, if taken for a UDP header. Such a source's data must still be
+/// routed (CodeRabbit on #37).
+class ControlLookalikeTestCase : public TestCase {
+public:
+    ControlLookalikeTestCase()
+        : TestCase("adapter: data whose header bytes read as the control port is still routed") {}
+
+private:
+    void DoRun() override {
+        Net n({{0, 0, 0}, {200, 0, 0}, {400, 0, 0}}, 1, "10.1.166.0", "0.0.0.21");
+        NS_TEST_ASSERT_MSG_EQ(n.Addr(0), Ipv4Address("10.1.166.21"), "the lookalike source");
+        n.Lay(0.1, 2, 1, Trail(n, 2, 2, 1, kTrailId, 32));
+        n.Lay(0.2, 1, 0, Trail(n, 2, 1, 0, kTrailId, 31));
+        n.Send(1.0, 0.25, 4, 0, n.Addr(2));
+        n.Run(3.0);
+        NS_TEST_EXPECT_MSG_EQ(n.received[2], 4u, "relayed and delivered as data");
+    }
+};
+
 class OverhearTestCase : public TestCase {
 public:
     OverhearTestCase() : TestCase("adapter: an overheard data frame deposits once (§4.2.2)") {}
@@ -520,6 +543,7 @@ public:
         AddTestCase(new HeaderRoundtripTestCase, TestCase::Duration::QUICK);
         AddTestCase(new HeaderFuzzTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ChainTestCase, TestCase::Duration::QUICK);
+        AddTestCase(new ControlLookalikeTestCase, TestCase::Duration::QUICK);
         AddTestCase(new OverhearTestCase, TestCase::Duration::QUICK);
         AddTestCase(new DeterminismTestCase, TestCase::Duration::QUICK);
     }
