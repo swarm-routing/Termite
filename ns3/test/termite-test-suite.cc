@@ -200,7 +200,7 @@ class Net {
 public:
     /// `first` is the host part of node 0's address in 10.1.<subnet>.0/24.
     Net(const std::vector<Vector>& positions, uint32_t seed, const char* subnet = "10.1.1.0",
-        const char* first = "0.0.0.1") {
+        const char* first = "0.0.0.1", bool observe = false) {
         SwarmCoreSeed(seed);
         m_nodes.Create(positions.size());
         MobilityHelper mobility;
@@ -239,6 +239,17 @@ public:
         received.assign(positions.size(), 0);
         for (uint32_t i = 0; i < m_nodes.GetN(); ++i) {
             Proto(i)->TraceConnect("Data", std::to_string(i), MakeCallback(&Net::Data, this));
+            if (observe) {
+                // The base's trace sources (#41); they only read.
+                auto p = Proto(i);
+                p->TraceConnectWithoutContext("RouteChanged",
+                                              MakeCallback(&Net::RouteChanged, this));
+                p->TraceConnectWithoutContext("DataDecision",
+                                              MakeCallback(&Net::DataDecision, this));
+                p->TraceConnectWithoutContext("StateSize", MakeCallback(&Net::StateSize, this));
+                p->TraceConnectWithoutContext("ControlTx", MakeCallback(&Net::ControlTx, this));
+                p->TraceConnectWithoutContext("ControlRx", MakeCallback(&Net::ControlRx, this));
+            }
             for (uint16_t port : {kDataPort, kTrailPort}) {
                 Ptr<Socket> s = Socket::CreateSocket(m_nodes.Get(i), UdpSocketFactory::GetTypeId());
                 s->Bind(InetSocketAddress(Ipv4Address::GetAny(), port));
@@ -295,6 +306,11 @@ public:
     std::set<uint32_t> sizes;           ///< sizes of the received data payloads
     std::vector<uint8_t> actions;       ///< RouteAction of each decision, in order
     std::vector<uint32_t> actionNodes;  ///< the node of each decision
+    // The base's trace sources, when the run connected them (#41).
+    uint32_t routeAdded = 0;
+    uint32_t dataDecisions = 0;
+    uint32_t stateSizes = 0;
+    uint32_t controlEvents = 0;  ///< the core sends no control packet: stays 0
 
 private:
     void SendRaw(uint32_t from, uint32_t to, PacketHeader h) {
@@ -340,6 +356,14 @@ private:
         while (s->Recv()) {
         }
     }
+
+    void RouteChanged(Ipv4Address, Ipv4Address, bool added) {
+        if (added) ++routeAdded;
+    }
+    void DataDecision(Ipv4Address, swarm::core::RouteAction) { ++dataDecisions; }
+    void StateSize(uint32_t, uint32_t) { ++stateSizes; }
+    void ControlTx(uint8_t, bool, uint32_t) { ++controlEvents; }
+    void ControlRx(uint8_t, uint32_t) { ++controlEvents; }
 
     void Data(std::string node, Ipv4Address source, uint32_t id, uint8_t action, Ipv4Address next) {
         std::ostringstream os;
@@ -483,9 +507,10 @@ private:
 
 /// Node 0 sends to node 3 across a diamond whose two middle nodes both carry
 /// a trail of 3's, with equal pheromone: eq. 4.3 draws between them.
-std::unique_ptr<Net> Diamond(uint32_t seed) {
+std::unique_ptr<Net> Diamond(uint32_t seed, bool observe = false) {
     auto n = std::make_unique<Net>(
-        std::vector<Vector>{{0, 0, 0}, {150, 100, 0}, {150, -100, 0}, {300, 0, 0}}, seed);
+        std::vector<Vector>{{0, 0, 0}, {150, 100, 0}, {150, -100, 0}, {300, 0, 0}}, seed,
+        "10.1.1.0", "0.0.0.1", observe);
     n->Lay(0.1, 3, 1, Trail(*n, 3, 3, 1, kTrailId, 32));
     n->Lay(0.2, 3, 2, Trail(*n, 3, 3, 2, kTrailId + 1, 32));
     n->Lay(0.3, 1, 0, Trail(*n, 3, 1, 0, kTrailId, 31));
@@ -534,6 +559,35 @@ private:
     }
 };
 
+class ObserverTestCase : public TestCase {
+public:
+    ObserverTestCase()
+        : TestCase("observer: the base's trace sources fire and change no output (#41)") {}
+
+private:
+    void DoRun() override {
+        std::vector<std::string> plain;
+        uint32_t plainReceived = 0;
+        {
+            const auto n = Diamond(1);
+            plain = n->trace;
+            plainReceived = n->received[3];
+        }
+        const auto seen = Diamond(1, true);
+        NS_TEST_EXPECT_MSG_GT(seen->routeAdded, 0u, "RouteChanged: trails added");
+        NS_TEST_EXPECT_MSG_GT(seen->dataDecisions, 0u, "DataDecision: data routed");
+        NS_TEST_EXPECT_MSG_GT(seen->stateSizes, 0u, "StateSize: the table changed");
+        NS_TEST_EXPECT_MSG_EQ(seen->controlEvents, 0u,
+                              "no control packet: a data header is not control");
+        NS_TEST_EXPECT_MSG_EQ(ns3::termite::RoutingProtocol::GetKindName(
+                                  ns3::termite::RoutingProtocol::GetTypeId(), 4),
+                              std::string("RREQ"), "kind 4 named");
+        // Connected sources never alter the run (org rule 5, observer contract).
+        NS_TEST_EXPECT_MSG_EQ((plain == seen->trace), true, "identical trace");
+        NS_TEST_EXPECT_MSG_EQ(plainReceived, seen->received[3], "identical delivery");
+    }
+};
+
 class TermiteTestSuite : public TestSuite {
 public:
     TermiteTestSuite() : TestSuite("termite", Type::UNIT) {
@@ -545,6 +599,7 @@ public:
         AddTestCase(new ChainTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ControlLookalikeTestCase, TestCase::Duration::QUICK);
         AddTestCase(new OverhearTestCase, TestCase::Duration::QUICK);
+        AddTestCase(new ObserverTestCase, TestCase::Duration::QUICK);
         AddTestCase(new DeterminismTestCase, TestCase::Duration::QUICK);
     }
 };
