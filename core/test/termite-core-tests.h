@@ -29,6 +29,12 @@ void TestLinkLost(Checker& c);
 void TestBoundedStructures(Checker& c);
 void TestDeliveryOnALine(Checker& c);
 void TestDeterminism(Checker& c);
+void TestObserverCallbacks(Checker& c);
+void TestObserverRouteChanges(Checker& c);
+void TestObserverIsReadOnly(Checker& c);
+
+/// The 3 x 3 grid run of test-network.cc with `obs` on every node (may be null).
+std::vector<std::string> RunObservedGrid(std::uint64_t seed, swarm::core::IRouterObserver* obs);
 
 struct NamedTest {
     const char* name;
