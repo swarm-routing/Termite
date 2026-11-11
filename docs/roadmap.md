@@ -87,7 +87,7 @@ the pre-registration on [#5](https://github.com/swarm-routing/Termite/issues/5) 
 
 | Release | Exit criteria |
 |---|---|
-| **v0.1.0** | **Shipped 2026-11-11, ungated.** The `termite` contrib module on swarm-core ([#37](https://github.com/swarm-routing/Termite/issues/37), closed 2026-11-11): header on data packets, adapter, helper, bench arm, tests; the `core/` on swarm-core's primitives; the fidelity sheet ([#4](https://github.com/swarm-routing/Termite/issues/4)) in `docs/fidelity.md`. |
+| **v0.1.0** | **Shipped 2026-11-11, ungated.** `core/` on swarm-core's primitives (the ch. 4 data path) and `docs/` (the fidelity sheet, [#4](https://github.com/swarm-routing/Termite/issues/4)) as they stood at the release commit. The `termite` contrib module was not in the release ([#37](https://github.com/swarm-routing/Termite/issues/37) closed later the same day), and the anchor was pending. |
 | **v0.2.0** | **Gated.** The module is green on `debug` and `sanitized` with the determinism gate; the router observer is adopted; the protocol has its own benchmark pipeline; the anchor has a verdict (PASS, or a written infeasibility verdict); the fidelity open items are settled.<br/>• [#41](https://github.com/swarm-routing/Termite/issues/41): report through swarm-core's router observer (the ns-3 half).<br/>• [#59](https://github.com/swarm-routing/Termite/issues/59): run the pre-registered anchor-miss cells from [#5](https://github.com/swarm-routing/Termite/issues/5) and apply its decision rule.<br/>• [#6](https://github.com/swarm-routing/Termite/issues/6): the protocol issue's remaining acceptance criteria (gates recorded in `benchmarks`; AntHocNet's arm removed with the byte-identical check).<br/>• [#31](https://github.com/swarm-routing/Termite/issues/31): paired smoke and anchor campaigns against the base, on the org reusable cell workflow (needs ns3-tools v0.2.0). |
 | **v0.3.0** | **Reviewed.** The paper-review issues, the performance follow-ups and default-off A/Bs.<br/>• [#4](https://github.com/swarm-routing/Termite/issues/4): the fidelity sheet's last criterion.<br/>• [#22](https://github.com/swarm-routing/Termite/issues/22): review the sheet against GLOBECOM 2003, SIDM 2006 and ABC once they are in hand.<br/>• [#42](https://github.com/swarm-routing/Termite/issues/42): zero-copy overhear, cached ipv4, one-pass decay.<br/>• [#43](https://github.com/swarm-routing/Termite/issues/43): hot-path pheromone reads off `entries()` (swarm-routing/ns3-swarm-core#47). |
 | **v1.0.0** | **Stable.** Wire format and `core/` API frozen; a released run recorded in the `benchmarks` global suite. No issue gates it yet. |
@@ -97,8 +97,8 @@ Not gating, so not labelled: the epic [#3](https://github.com/swarm-routing/Term
 ## Infrastructure track
 
 CI, org-template and settings work rides along with whichever release is next
-and never gates one. It is labelled when it should ship with a release, never
-listed as an exit criterion. No item is scheduled yet.
+and never gates one, so it carries no `release:` label and is never an exit
+criterion. No item is scheduled yet.
 
 ## Deliberate non-goals
 
