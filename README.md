@@ -18,7 +18,7 @@ Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MA
 
 **Status:** the org's Phase 5 ([.github#51](https://github.com/swarm-routing/.github/issues/51)); `core/` is being written (the data path first, #6), the ns-3 module follows. See [AGENTS.md](AGENTS.md) for the plan.
 
-**Release status:** v0.1.0, the first release, is cut before the comparator gates (maintainer decision 2026-11-10) and has **not** cleared them (org golden rule 6: fidelity sheet, per-PR delivery smoke, anchor). It ships `core/` and `docs/`; the ns-3 module `termite` and the anchor are pending, so no number from v0.1.0 counts as a benchmark result. The gated release is proposed as v0.2.0. Releases are cut by [`release.yml`](.github/workflows/release.yml) and listed under [Releases](https://github.com/swarm-routing/Termite/releases).
+**Release status:** the first release, v0.1.0, comes before the comparator gates (maintainer decision 2026-11-10): it has **not** cleared them (org golden rule 6: fidelity sheet, per-PR delivery smoke, anchor). It ships `core/` and `docs/`; the ns-3 module `termite` and the anchor are pending, so no number from v0.1.0 counts as a benchmark result. The gated release is proposed as v0.2.0. Releases are cut by [`release.yml`](https://github.com/swarm-routing/Termite/blob/main/.github/workflows/release.yml) and listed under [Releases](https://github.com/swarm-routing/Termite/releases).
 
 ## Epics
 
