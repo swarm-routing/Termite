@@ -261,6 +261,7 @@ here is undone by the next `org_sync.py apply`).
 
 | You want to… | Go to |
 |--------------|-------|
+| Know which release a piece of work serves, or why something is not planned | [`docs/roadmap.md`](docs/roadmap.md) (the release ladder, adopted 2026-11-11; issues carry `release:` labels) |
 | The org's invariants, labels, issue shape | [`swarm-routing/.github` CONTRIBUTING.md](https://github.com/swarm-routing/.github/blob/main/CONTRIBUTING.md) |
 | The arm being promoted (GPL-2.0-only) | AntHocNet `ns3/baselines/adaptive/model/termite-routing-protocol.{h,cc}`, its README fidelity notes, `ns3/tools/fixtures/termite/termite-anchor.flows`; danieljoppi/AntHocNet#587 |
 | The v2.5.0 result and the anchor miss | AntHocNet `docs/benchmarks/v2.5.0-comparators.md` |
