@@ -15,12 +15,13 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=bugs)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
+[![codecov](https://codecov.io/gh/swarm-routing/Termite/graph/badge.svg)](https://codecov.io/gh/swarm-routing/Termite)
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/swarm-routing/Termite?utm_source=oss&utm_medium=github&utm_campaign=swarm-routing%2FTermite&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 <!-- org-sync:end badges -->
 
 Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MANETs: routing state rides inside data packets (stigmergy), with no control ants and randomised multipath forwarding. A simulator-agnostic `core/` plus the ns-3 contrib module `termite` on [`swarm-core`](https://github.com/swarm-routing/ns3-swarm-core).
 
-**Status:** the org's Phase 5 ([.github#51](https://github.com/swarm-routing/.github/issues/51)); `core/` is being written (the data path first, #6), the ns-3 module follows. See [AGENTS.md](AGENTS.md) for the plan.
+**Status:** the org's Phase 5 ([.github#51](https://github.com/swarm-routing/.github/issues/51)); the data path, the first slice of `core/`, runs in ns-3 as the module `termite` (header codec, adapter, helper, `test.py -s termite`, and the `termite` arm of ns3-tools' `routing-compare`); route requests, hello, seed and next-hop failure follow (#6), then the gates. See [AGENTS.md](AGENTS.md) for the plan.
 
 **Release status:** the first release, v0.1.0, comes before the comparator gates (maintainer decision 2026-11-10): it has **not** cleared them (org golden rule 6: fidelity sheet, per-PR delivery smoke, anchor). It ships `core/` and `docs/`; the ns-3 module `termite` and the anchor are pending, so no number from v0.1.0 counts as a benchmark result. The gated release is proposed as v0.2.0. Releases are cut by [`release.yml`](https://github.com/swarm-routing/Termite/blob/main/.github/workflows/release.yml) and listed under [Releases](https://github.com/swarm-routing/Termite/releases).
 

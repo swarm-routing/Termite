@@ -8,6 +8,7 @@ Licensed per directory, as AntHocNet
 | Path | Licence |
 |------|---------|
 | `core/` (its own [`core/LICENSE`](core/LICENSE)) | `MIT OR GPL-2.0-only` |
+| `ns3/` (the ns-3 contrib module `termite`) | `GPL-2.0-only` |
 | everything else (ns-3 modules, docs, data) | `GPL-2.0-only` |
 
 `MIT OR GPL-2.0-only` means you may use that code under either licence, at
