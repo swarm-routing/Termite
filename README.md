@@ -41,7 +41,7 @@ Each release also has its own **version DOI**, listed on [its Zenodo record](htt
 Please also cite the work it builds on:
 
 - M. Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, Cornell University, 2005, <https://hdl.handle.net/1813/240> (no DOI: a dissertation in Cornell's eCommons repository). The primary source this repository implements.
-- M. Roth, S. Wicker, *Termite: ad-hoc networking with stigmergy*, GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489), vol. 5, pp. 2937–2941, 2003, [doi:10.1109/GLOCOM.2003.1258772](https://doi.org/10.1109/GLOCOM.2003.1258772). The protocol's first paper (GLOBECOM 2003).
+- M. Roth, S. Wicker, *Termite: ad-hoc networking with stigmergy*, GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489), vol. 5, pp. 2937–2941, 2003, [doi:10.1109/GLOCOM.2003.1258772](https://doi.org/10.1109/GLOCOM.2003.1258772). The protocol's GLOBECOM 2003 paper.
 - M. Roth, S. Wicker, *Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks*, Stigmergic Optimization, Studies in Computational Intelligence, pp. 155–184, 2006, [doi:10.1007/978-3-540-34690-6_7](https://doi.org/10.1007/978-3-540-34690-6_7). The book-chapter version of the dissertation's algorithm.
 
 What this implementation reproduces from its sources, and every deliberate deviation, is in [docs/fidelity.md](docs/fidelity.md).

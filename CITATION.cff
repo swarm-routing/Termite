@@ -55,7 +55,7 @@ references:
     publisher:
       name: "IEEE"
     doi: "10.1109/GLOCOM.2003.1258772"
-    notes: "The protocol's first paper (GLOBECOM 2003)."
+    notes: "The protocol's GLOBECOM 2003 paper."
   - type: book
     title: "Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks"
     authors:
