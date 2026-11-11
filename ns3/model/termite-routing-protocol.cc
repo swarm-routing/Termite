@@ -41,6 +41,8 @@ TypeId RoutingProtocol::GetTypeId() {
                             "RouteAction byte, next hop).",
                             MakeTraceSourceAccessor(&RoutingProtocol::m_dataTrace),
                             "ns3::termite::RoutingProtocol::DataCallback");
+    // The packet kinds' names for the observer's ControlTx/ControlRx readers (#41).
+    SwarmRoutingBase::SetKindNames(tid, core::kPacketKindNames);
     return tid;
 }
 
@@ -54,6 +56,7 @@ void RoutingProtocol::DoInitialize() {
     // constants are core::Config's defaults, each sourced in docs/fidelity.md.
     m_router = std::make_unique<core::Router>(ToNodeAddress(MainAddress()), core::Config{}, Rng(),
                                               Timers());
+    m_router->setObserver(&Observer());
     m_router->start();
     // Promiscuous reception ([R05] §4.2.2): frames addressed to other nodes,
     // on every device but the loopback.
