@@ -1,5 +1,6 @@
 # Citation File Format (https://citation-file-format.github.io), seeded by
-# swarm-routing/.github org-sync (`citation = true`); the repository's own once
+# swarm-routing/.github org-sync (`citation = true`; `citation_type` and
+# `[[references]]` in .github/org-sync.toml); the repository's own once
 # written. Commitizen keeps `version:` in step (`.cz.toml` version_files
 # "CITATION.cff:^version:"); swarm-routing/.github tools/zenodo reads the
 # concept DOI from `doi:` once the first release is archived on Zenodo.
@@ -26,3 +27,47 @@ identifiers:
   - type: doi
     value: "10.5281/zenodo.24124722"
     description: "Concept DOI: always resolves to the latest released version."
+references:
+  - type: thesis
+    title: "Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks"
+    authors:
+      - family-names: "Roth"
+        given-names: "Martin"
+    institution:
+      name: "Cornell University"
+    thesis-type: "PhD dissertation"
+    year: 2005
+    url: "https://hdl.handle.net/1813/240"
+    notes: "The primary source this repository implements. No DOI: a dissertation in Cornell's eCommons repository."
+  - type: conference-paper
+    title: "Termite: ad-hoc networking with stigmergy"
+    authors:
+      - family-names: "Roth"
+        given-names: "M."
+      - family-names: "Wicker"
+        given-names: "S."
+    collection-title: "GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489)"
+    collection-type: proceedings
+    volume: "5"
+    start: "2937"
+    end: "2941"
+    year: 2003
+    publisher:
+      name: "IEEE"
+    doi: "10.1109/GLOCOM.2003.1258772"
+    notes: "The protocol's GLOBECOM 2003 paper."
+  - type: book
+    title: "Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks"
+    authors:
+      - family-names: "Roth"
+        given-names: "Martin"
+      - family-names: "Wicker"
+        given-names: "Stephen"
+    collection-title: "Stigmergic Optimization, Studies in Computational Intelligence"
+    start: "155"
+    end: "184"
+    year: 2006
+    publisher:
+      name: "Springer Berlin Heidelberg"
+    doi: "10.1007/978-3-540-34690-6_7"
+    notes: "The book-chapter version of the dissertation's algorithm."
