@@ -10,7 +10,7 @@ namespace termite::core::test {
 
 namespace {
 
-constexpr std::array<NamedTest, 16> kTests{{
+constexpr std::array<NamedTest, 19> kTests{{
     {"header codec: roundtrip", TestPacketRoundtrip},
     {"header codec: the decoder fails closed", TestPacketDecoderFailsClosed},
     {"header codec: seeded fuzz", TestPacketFuzz},
@@ -27,6 +27,9 @@ constexpr std::array<NamedTest, 16> kTests{{
     {"bounded: duplicate list, table, deposit record", TestBoundedStructures},
     {"end to end: a line, both ways", TestDeliveryOnALine},
     {"determinism: same seed, same trace", TestDeterminism},
+    {"observer: every callback, data header is not control", TestObserverCallbacks},
+    {"observer: pheromone entries appear and disappear", TestObserverRouteChanges},
+    {"observer: read-only, same run with and without", TestObserverIsReadOnly},
 }};
 
 }  // namespace
