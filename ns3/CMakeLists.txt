@@ -54,6 +54,7 @@ build_lib(
     ${termite_core_dir}/test/all-tests.cc
     ${termite_core_dir}/test/test-packet-codec.cc
     ${termite_core_dir}/test/test-network.cc
+    ${termite_core_dir}/test/test-observer.cc
     ${termite_core_dir}/test/test-router.cc
     test/termite-test-suite.cc
 )
