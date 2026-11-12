@@ -139,7 +139,7 @@ Org-wide (1–9), then this repo's own.
 10. **`core/` never includes a simulator header**; the adapter only converts headers, executes `RouteDecision`s and owns timers/queues (AntHocNet golden rules 1–2).
 11. **Paper fidelity is written down.** Every parameter default cites its dissertation or paper section or is marked a repo choice / unknown; deviations live in `docs/fidelity.md`.
 12. **Explain the anchor miss before code.** AntHocNet's arm passed the delivery smoke but missed its anchor (v2.5.0: trend right, CIs span zero). Whether that was the arm, the scenario or power is pre-registered in an issue, with its evidence, before `core/` is written.
-13. **Mind the licence split when promoting AntHocNet's `termite` arm** (GPL-2.0-only): its ns-3 code may land in `ns3/` as-is with provenance; the algorithm in `core/` (dual) is written fresh or carries a recorded dual-licence grant (AntHocNet ADR-0028's provenance gate). Papers stay in the private `swarm-routing/papers` repo.
+13. **Mind the licence split when promoting AntHocNet's `termite` arm** (GPL-2.0-only): its ns-3 code may land in `ns3/` as-is with provenance; the algorithm in `core/` (dual) is written fresh or carries a recorded dual-licence grant (AntHocNet ADR-0028's provenance gate). Paper copies stay in a private paper store the maintainer keeps, never in this public repository.
 
 ## Conventions
 
