@@ -63,7 +63,7 @@ not GLOBECOM 2003; whether the two are the same text is not known.
 | RW03 | Roth & Wicker, *Termite: ad-hoc networking with stigmergy*, GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489), 2003, pp. 2937–2941 | <https://doi.org/10.1109/glocom.2003.1258772> |
 | RW06 | Roth & Wicker, *Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks*, Stigmergic Optimization, 2006, pp. 155–184 | <https://doi.org/10.1007/978-3-540-34690-6_7> |
 | S97 | Schoonderwoerd et al., *Ant-Based Load Balancing in Telecommunications Networks*, Adaptive Behavior 5(2), 1997, pp. 169–207 | <https://doi.org/10.1177/105971239700500203> |
-| SwarmCore | Joppi, *ns3-swarm-core*, version v0.1.0, Zenodo, 2026 | <https://doi.org/10.5281/zenodo.24138628> |
+| SwarmCore | Joppi, *ns3-swarm-core*, Zenodo, 2026 | <https://doi.org/10.5281/zenodo.24138628> |
 <!-- fidelity:sources:end -->
 
 The entries live in [`references.bib`](references.bib); the table is
