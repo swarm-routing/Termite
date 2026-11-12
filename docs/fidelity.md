@@ -48,21 +48,32 @@ setups, kept for the anchor; they are not protocol constants.
 Read for this sheet: ch. 4 whole (§4.1–§4.5, pp. 70–91), §5.1–§5.5
 (pp. 92–117; the results of §5.4.3–§5.4.4 skimmed for the method ranking),
 §6.3.2 (p. 129), ch. 7 §7.1–§7.3.4 and §7.4.1 (pp. 144–166), the
-bibliography entries [45], [54]–[56], [80], [81], and defence slide 15
-[R05s]. The GLOBECOM 2003 paper [RW03] and the SIDM 2005 chapter [RW06] were
-not read: neither is in the papers library (their review: #22). Note that the dissertation cites
+bibliography entries [45], [54]–[56], [80], [81], and slide 15 of Roth's
+dissertation-defence slides. The GLOBECOM 2003 paper [RW03] and the SIDM 2005
+chapter [RW06] were not read (their review: #22). Note that the dissertation cites
 its own first Termite report as Med-Hoc-Net 2003 ([R05] p. 194, ref. [56]),
 not GLOBECOM 2003; whether the two are the same text is not known.
 
 ## Sources
 
-| Key | Citation | Access |
+<!-- fidelity:sources:begin -->
+| Key | Citation | Link |
 |---|---|---|
-| R05 | M. H. Roth, Termite: A Swarm Intelligent Routing Algorithm for Mobile Wireless Ad-Hoc Networks, PhD dissertation, Cornell University, January 2005 (209 pp.; eCommons) | in hand |
-| R05s | M. H. Roth, Termite dissertation-defence slides, Cornell University (44 slides). Secondary: superseded by [R05] | in hand |
-| RW03 | M. Roth, S. Wicker, Termite: ad-hoc networking with stigmergy, IEEE GLOBECOM 2003, vol. 5, pp. 2937–2941, DOI 10.1109/GLOCOM.2003.1258772. Not read: no row rests on it | institution |
-| RW06 | M. Roth, S. Wicker, Termite: A Swarm Intelligent Routing Algorithm for Mobile Wireless Ad-Hoc Networks, in Stigmergic Optimization, Studies in Computational Intelligence 31, Springer, 2006, pp. 155–184, DOI 10.1007/978-3-540-34690-6_7 ("SIDM 2005"). Not read: no row rests on it | browser |
-| S97 | R. Schoonderwoerd, O. Holland, J. Bruten, L. Rothkrantz, Ant-Based Load Balancing in Telecommunications Networks, Adaptive Behavior 5(2):169–207, 1997, DOI 10.1177/105971239700500203 (ABC). Background only, for ch. 5's ABC+X; [R05] dates it 1996 (p. 193, ref. [45]), Crossref's publisher record 1997. Not read | institution |
+| R05 | Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, PhD thesis, Cornell University, 2005 | <https://hdl.handle.net/1813/240> |
+| RW03 | Roth & Wicker, *Termite: ad-hoc networking with stigmergy*, GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489), 2003, pp. 2937–2941 | <https://doi.org/10.1109/glocom.2003.1258772> |
+| RW06 | Roth & Wicker, *Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks*, Stigmergic Optimization, 2006, pp. 155–184 | <https://doi.org/10.1007/978-3-540-34690-6_7> |
+| S97 | Schoonderwoerd et al., *Ant-Based Load Balancing in Telecommunications Networks*, Adaptive Behavior 5(2), 1997, pp. 169–207 | <https://doi.org/10.1177/105971239700500203> |
+| SwarmCore | Joppi, *ns3-swarm-core*, version v0.1.0, Zenodo, 2026 | <https://doi.org/10.5281/zenodo.24138628> |
+<!-- fidelity:sources:end -->
+
+The entries live in [`references.bib`](references.bib); the table is
+generated from it (`fidelity.py bib sources`). [R05] is the dissertation
+(January 2005, 209 pp.), the source of every row. Roth's dissertation-defence
+slides (Cornell University, 44 slides) are a secondary source, superseded by
+[R05]; slide 15 is cited below by name. They have no public record, so they
+have no entry. [RW03] and [RW06] were not read: no row rests on them. [S97]
+(ABC) is background only, for ch. 5's ABC+X; [R05] dates it 1996 (p. 193,
+ref. [45]), the publisher's record 1997. Not read.
 
 ## Mechanisms
 
@@ -91,8 +102,8 @@ and the shared `adaptive-routing-base`, `adaptive-tables.h`) does it.
 | ch. 4: packet fields: source, destination, previous hop, next hop, message ID, TTL; previous and next hop may come from the MAC header | [R05] §4.2.6, p. 75 | One POD, versioned header (org rule 3), carrying previous and next hop itself rather than reading the MAC header. In ns-3 it travels on every data packet between the IPv4 header and the transport header (the IPv4 protocol field still names the transport), is replaced on every hop and removed before local delivery. Arm: control packets carry their own header (type, TTL, sequence, origin, target, hops); data carries no Termite header, only a `PrevHopTag` standing in for the MAC source, and no message ID | as written (widths: Parameters row, unknown); the ns-3 placement between the IPv4 and the transport header accepted by the maintainer on 2026-11-11 ([#6](https://github.com/swarm-routing/Termite/issues/6#issuecomment-6783813875)) |
 | ch. 4: duplicate list: with message IDs, a node keeps the packets it has forwarded or overheard and drops a packet seen again, without updating its table, which prevents counting an overheard packet twice and kills loops | [R05] §4.3.2, p. 78, §4.3.9, pp. 81–82 | On, with a message ID on every packet; the list is capped (org rule 7; size: Parameters row) and records the IDs this node has forwarded (accepted as next hop), not IDs it only overheard ([#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6757156388)). An overheard copy deposits once (one deposit per packet per node) and is never forwarded; the first copy addressed to the node is processed and forwarded even if its ID was overheard, without a second deposit; a copy whose ID the node has forwarded is dropped without updating its table. Exempt: a packet coming back from the neighbour this node just forwarded it to (the dead-end bounce, row above; [#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6757064677)). No header change. Arm: no; every received or overheard copy deposits, loops end only at the TTL Arm: no; every received or overheard copy deposits, loops end only at the TTL | deviation: on (maintainer decision 2026-11-10, [#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6756868538)), but the list holds forwarded IDs only, not overheard ones as §4.3.2 and §4.3.9 describe; §4.3.9's aim (no double counting) is kept by the one-deposit rule ([#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6757156388)). §4.3.2 makes the list optional ("If loops cannot be tolerated"), §4.3.9 says a promiscuous node "should maintain" the list, §4.2.6 calls the ID "not required"; ch. 4 always runs promiscuous, so §4.3.9 applies (arm: deviation, see Differences) |
 | ch. 4: TTL: every packet type carries one; it bounds loops and wrong turns | [R05] §4.3.2, p. 78, Table 4.1 | Per-type TTLs from Table 4.1. Arm: control yes; data no, it uses the harness's IP TTL (64) | as written (arm: deviation, see Differences) |
-| ch. 4: a packet whose next hop has gone may be resent to a neighbour that can still be reached | [R05] §4.3.4, p. 79; [R05s] p. 15 | The adapter returns the failed packet to `core/`, which removes the row and forwards again. Arm: yes (`MacReinject`) | as written |
-| ch. 4: control packets are forwarded with high priority | [R05s] p. 15 | A priority queue for control, if the adapter's MAC allows it. Arm: no, one MAC queue | as written, from the slides only; the dissertation does not say it |
+| ch. 4: a packet whose next hop has gone may be resent to a neighbour that can still be reached | [R05] §4.3.4, p. 79 | The adapter returns the failed packet to `core/`, which removes the row and forwards again. Arm: yes (`MacReinject`) | as written (Roth's defence slides, slide 15, say the same) |
+| ch. 4: control packets are forwarded with high priority | unknown | A priority queue for control, if the adapter's MAC allows it. Arm: no, one MAC queue | as written, from Roth's defence slides only (slide 15; no public record, so no `[KEY]`); the dissertation does not say it |
 | ch. 4: links are assumed symmetric: a packet heard from a node means packets can go back to it | [R05] §4.3.11, p. 83 | Assumed; no unidirectional-link handling. Arm: the same | as written |
 | ch. 5: true continuous decay, evaluated at every observation of a cell (arrival and forwarding) | [R05] §5.2.1, pp. 94–95, eq. 5.3 | None. Arm: its decay is this, applied to ch. 4 | not implemented: ch. 5 only (ch. 4 decays periodically) |
 | ch. 5: the cumulative path metric piggybacked on every packet; the deposit is the path utility γ (γPF) | [R05] §5.2.1, p. 95, eq. 5.4 | None. Arm: no | not implemented: ch. 5 only |
@@ -196,7 +207,7 @@ written "expected" is a hypothesis for #5, not a measurement.
 | ch. 4: no rule for data at a dead end (N − r empty); this repository sends it back on the arrival link (maintainer decision 2026-11-10, [#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6756868538)) | held in the shared queue up to 30 s or 64 packets | Expected effect: those packets are delivered late or dropped after 30 s instead of bounced at once; a delay effect more than a PDR one |
 | ch. 4: unknown destination, data dropped at the rreq timeout (2 s, p. 75) | dropped at 2 s only if the destination is still unknown; otherwise kept in the 64-packet, 30 s queue until a next hop exists | Expected effect: slightly higher PDR and delay than ch. 4 |
 | ch. 4: nothing on concurrent route requests | one request per destination at a time | Expected effect: fewer RREQs; small |
-| ch. 4: control packets at high priority ([R05s] p. 15) | one MAC queue | Expected effect: RREQs and RREPs wait behind data; mild at the anchor's load |
+| ch. 4: control packets at high priority (Roth's defence slides, slide 15) | one MAC queue | Expected effect: RREQs and RREPs wait behind data; mild at the anchor's load |
 | ch. 4: hello reply delay not given | U[0, 10 ms); first hello in U[0, 100 ms) | an unrecorded repo choice. Expected effect: none on the trend |
 | ch. 4: seed phase not given | uniform in [0, seed period) | an unrecorded repo choice. Expected effect: none on the trend |
 | scenario §4.4.1: perfect MAC, no errors or collisions, queues modelled (p. 85) | ns-3 802.11 (`rateManager=constant2`), `propagation=range` at 250 m | Expected effect: collisions and hidden terminals lose data and control, and a lost neighbour is found only at the MAC retry limit. On the anchor's range-propagation cells this loss is small: of the packets offered, 0.90 % end at the MAC at 1 m/s and 4.43 % at 20 m/s, against 46.41 % and 46.54 % expiring on TTL (`##DROPID##` rows of `anchor-termite-s{1,20}-v250c.txt`). The 30 % MAC loss in the v2.5.0 family results is the Nakagami fading grid, not the anchor |

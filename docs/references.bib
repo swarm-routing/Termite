@@ -1,0 +1,76 @@
+% docs/references.bib: the works this repository relies on, one entry each
+% (swarm-routing/.github CONTRIBUTING "References"; checked in CI by
+% `fidelity.py bib check` once the file has an entry).
+%
+% Roles, in `keywords`: implemented (the work this repository implements),
+% restates, compared, dataset, tool, background. The implemented, tool and
+% dataset entries are rendered into CITATION.cff `references:` and the README's
+% "Releases & citing" section by org-sync: edit them here, never there.
+%
+% Every entry gives its DOI; a url only for a work that has none. Never this
+% repository's own DOI: CITATION.cff carries it. Public sources only: a work is
+% cited by its DOI link, never by where a copy of it is kept.
+%
+% Never type an entry or a field: take it from Crossref or Zenodo,
+%   python3 -I tools/fidelity/fidelity.py bib entry DOI --key K --role R
+%   python3 -I tools/zenodo/zenodo.py bibtex OWNER/REPO --key K --role tool
+% (both in swarm-routing/.github). With nothing to cite yet, the file stays
+% this header alone.
+@phdthesis{R05,
+  author   = {Roth, Martin},
+  title    = {Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks},
+  school   = {Cornell University},
+  year     = {2005},
+  url      = {https://hdl.handle.net/1813/240},
+  note     = {The primary source this repository implements (ch. 4): docs/fidelity.md maps it to the code.},
+  keywords = {implemented}
+}
+
+@inproceedings{RW03,
+  author    = {Roth, M. and Wicker, S.},
+  title     = {Termite: ad-hoc networking with stigmergy},
+  booktitle = {GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489)},
+  volume    = {5},
+  pages     = {2937--2941},
+  publisher = {IEEE},
+  year      = {2003},
+  doi       = {10.1109/glocom.2003.1258772},
+  keywords  = {restates}
+}
+
+@incollection{RW06,
+  author    = {Roth, Martin and Wicker, Stephen},
+  title     = {Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks},
+  booktitle = {Stigmergic Optimization},
+  series    = {Studies in Computational Intelligence},
+  pages     = {155--184},
+  publisher = {Springer Berlin Heidelberg},
+  year      = {2006},
+  doi       = {10.1007/978-3-540-34690-6_7},
+  keywords  = {restates}
+}
+
+@article{S97,
+  author    = {Schoonderwoerd, Ruud and Holland, Owen E. and Bruten, Janet L. and Rothkrantz, Leon J. M.},
+  title     = {Ant-Based Load Balancing in Telecommunications Networks},
+  journal   = {Adaptive Behavior},
+  volume    = {5},
+  number    = {2},
+  pages     = {169--207},
+  publisher = {SAGE Publications},
+  year      = {1997},
+  doi       = {10.1177/105971239700500203},
+  keywords  = {background}
+}
+
+@software{SwarmCore,
+  author    = {Joppi, Daniel Henrique},
+  title     = {ns3-swarm-core},
+  publisher = {Zenodo},
+  year      = {2026},
+  version   = {v0.1.0},
+  doi       = {10.5281/zenodo.24138628},
+  url       = {https://github.com/swarm-routing/ns3-swarm-core},
+  note      = {The shared primitives core/ builds on (pinned by commit: SWARM_CORE_REF) and the ns-3 base the adapter derives from (SwarmRoutingBase).},
+  keywords  = {tool}
+}
