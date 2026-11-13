@@ -5,7 +5,7 @@
 # with no ns-3 tree. It builds on swarm-core's dual-licensed primitives
 # (swarm-routing/ns3-swarm-core core/): the ports, RouteDecision, the
 # pheromone table, the dedup history, roulette selection and the wire
-# helpers. The ns-3 module (ns3/, to come) compiles the same sources against
+# helpers. The ns-3 module (ns3/) compiles the same sources against
 # the swarm-core contrib module and runs the same tests under test.py.
 #
 #   cmake -S core -B build/core && cmake --build build/core && ctest --test-dir build/core

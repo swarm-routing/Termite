@@ -51,7 +51,7 @@ dependencies are named `swarm-routing/<repo>#N`.
 
 ```mermaid
 flowchart TB
-    I41["#41 observer, ns-3 half"]
+    I95["#95 data header counted<br/>as control by routing-bench"]
     I59["#59 anchor-miss cells<br/>(pre-registration #5)"]
     I6["#6 core/ + ns-3 module<br/>through the three gates"]
     I31["#31 pipeline + anchor"]
@@ -59,21 +59,25 @@ flowchart TB
     I22["#22 review against<br/>GLOBECOM 2003, SIDM 2006, ABC"]
     I42["#42 perf follow-ups"]
     I43["#43 hot-path pheromone reads"]
+    I80["#80 v1.0.0: wire format<br/>and core/ API frozen"]
 
     SC47["ns3-swarm-core#47"]
     NT["ns3-tools v0.2.0<br/>campaigns and CLI"]
-    SCO["ns3-swarm-core observer<br/>(#42, #44)"]
+    SC10["ns3-swarm-core v1.0.0"]
     BM["benchmarks<br/>(run format)"]
 
-    SCO --> I41
+    I95 --> I31
+    I95 --> I59
     NT --> I31
     BM --> I31
     I59 --> I31
-    I41 --> I6
     I31 --> I6
     I6 --> I42
     SC47 -.-> I43
     I22 -.-> I4
+    I6 --> I80
+    I4 --> I80
+    SC10 --> I80
 
     style I6 fill:#e8e6f8,stroke:#5b4fc4,stroke-width:2px
 ```
@@ -83,16 +87,18 @@ the anchor is claimed. AntHocNet's arm passed the delivery smoke but missed its
 anchor in v2.5.0 (trend right, confidence intervals span zero, danieljoppi/AntHocNet#587);
 the pre-registration on [#5](https://github.com/swarm-routing/Termite/issues/5) (closed 2026-11-11) chose the cells, and [#59](https://github.com/swarm-routing/Termite/issues/59) runs them and applies the decision rule.
 
+The router observer is no longer in the picture: [#41](https://github.com/swarm-routing/Termite/issues/41) (the core and the ns-3 half) closed on 2026-11-11 ([`observer.md`](observer.md)). [#95](https://github.com/swarm-routing/Termite/issues/95) is: the data header sits in front of the UDP header, so routing-bench would count every data hop as control, and it is fixed before #31 or #59 report overhead.
+
 ## What each release must show to ship
 
 | Release | Exit criteria |
 |---|---|
 | **v0.1.0** | **Shipped 2026-11-11, ungated.** `core/` on swarm-core's primitives (the ch. 4 data path) and `docs/` (the fidelity sheet, [#4](https://github.com/swarm-routing/Termite/issues/4)) as they stood at the release commit. The `termite` contrib module was not in the release ([#37](https://github.com/swarm-routing/Termite/issues/37) closed later the same day), and the anchor was pending. |
-| **v0.2.0** | **Gated.** The module is green on `debug` and `sanitized` with the determinism gate; the router observer is adopted; the protocol has its own benchmark pipeline; the anchor has a verdict (PASS, or a written infeasibility verdict); the fidelity open items are settled.<br/>• [#41](https://github.com/swarm-routing/Termite/issues/41): report through swarm-core's router observer (the ns-3 half).<br/>• [#59](https://github.com/swarm-routing/Termite/issues/59): run the pre-registered anchor-miss cells from [#5](https://github.com/swarm-routing/Termite/issues/5) and apply its decision rule.<br/>• [#6](https://github.com/swarm-routing/Termite/issues/6): the protocol issue's remaining acceptance criteria (gates recorded in `benchmarks`; AntHocNet's arm removed with the byte-identical check).<br/>• [#31](https://github.com/swarm-routing/Termite/issues/31): paired smoke and anchor campaigns against the base, on the org reusable cell workflow (needs ns3-tools v0.2.0). |
+| **v0.2.0** | **Gated.** The module is green on `debug` and `sanitized` with the determinism gate; the router observer is adopted; the protocol has its own benchmark pipeline; the anchor has a verdict (PASS, or a written infeasibility verdict); the fidelity open items are settled. Done: the router observer ([#41](https://github.com/swarm-routing/Termite/issues/41), closed 2026-11-11). Open:<br/>• [#59](https://github.com/swarm-routing/Termite/issues/59): run the pre-registered anchor-miss cells from [#5](https://github.com/swarm-routing/Termite/issues/5) and apply its decision rule.<br/>• [#6](https://github.com/swarm-routing/Termite/issues/6): the protocol issue's remaining acceptance criteria (gates recorded in `benchmarks`; AntHocNet's arm removed with the byte-identical check).<br/>• [#31](https://github.com/swarm-routing/Termite/issues/31): paired smoke and anchor campaigns against the base, on the org reusable cell workflow (needs ns3-tools v0.2.0). |
 | **v0.3.0** | **Reviewed.** The paper-review issues, the performance follow-ups and default-off A/Bs.<br/>• [#4](https://github.com/swarm-routing/Termite/issues/4): the fidelity sheet's last criterion.<br/>• [#22](https://github.com/swarm-routing/Termite/issues/22): review the sheet against GLOBECOM 2003, SIDM 2006 and ABC once they are in hand.<br/>• [#42](https://github.com/swarm-routing/Termite/issues/42): zero-copy overhear, cached ipv4, one-pass decay.<br/>• [#43](https://github.com/swarm-routing/Termite/issues/43): hot-path pheromone reads off `entries()` (swarm-routing/ns3-swarm-core#47). |
-| **v1.0.0** | **Stable.** Wire format and `core/` API frozen; a released run recorded in the `benchmarks` global suite. No issue gates it yet. |
+| **v1.0.0** | **Stable.** Wire format and `core/` API frozen; a released run recorded in the `benchmarks` global suite.<br/>• [#80](https://github.com/swarm-routing/Termite/issues/80): freeze the wire format and the `core/` API, with the gates passed (after v0.2.0, v0.3.0 and ns3-swarm-core v1.0.0). |
 
-Not gating, so not labelled: the epic [#3](https://github.com/swarm-routing/Termite/issues/3) and the handoff [#7](https://github.com/swarm-routing/Termite/issues/7).
+Not gating, so not labelled: the epic [#3](https://github.com/swarm-routing/Termite/issues/3) and the handoff [#7](https://github.com/swarm-routing/Termite/issues/7). [#95](https://github.com/swarm-routing/Termite/issues/95) carries no `release:` label either; it is drawn above because the overhead numbers of #31 and #59 wait for it.
 
 ## Infrastructure track
 
