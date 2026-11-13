@@ -24,8 +24,10 @@
 #
 # `verdicts` prints the paired 95 % CI of head minus base per cell
 # (bench_parse --ab --proto termite). The pins below are the pair this pipeline
-# was first proven on (base 82bcff5, #37; head 63ce049, #56: the router observer of #55 and #56, expected to change no termite row).
-generation: smoke-63ce049
+# was first proven on (base 334b76c, the parent of 63ce049; head 63ce049, #56: the router observer,
+# expected to change no termite row). The first try, base 82bcff5 (#37), could not build: it predates
+# #55, which compiles core/test/test-observer.cc into the termite test library (#31).
+generation: smoke-63ce049-334b76c
 ref: main
 repo: swarm-routing/Termite
 workflow: benchmark-cell.yml
@@ -34,7 +36,7 @@ cap: 4
 control: base
 image: ghcr.io/swarm-routing/ns3-dev@sha256:5585a93c5cea1980592539e2d26a4e111e0ff4b0cc63b3dfd6ea5de459d80d3f
 pins:
-  base: {source_sha: 82bcff5036318b6cf87c5e6fe1be56ee7c399305}
+  base: {source_sha: 334b76cb4c453c7ce03ede084dfdcf6cc218b6e5}
   head: {source_sha: 63ce0497a457cb0455fa5a71215b9292dbabf43f}
 
 arms:
