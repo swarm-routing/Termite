@@ -28,17 +28,14 @@ identifiers:
     value: "10.5281/zenodo.24124722"
     description: "Concept DOI: always resolves to the latest released version."
 references:
-  - type: thesis
+  - type: generic
     title: "Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks"
     authors:
       - family-names: "Roth"
         given-names: "Martin"
-    institution:
-      name: "Cornell University"
-    thesis-type: "PhD thesis"
     year: 2005
     url: "https://hdl.handle.net/1813/240"
-    notes: "The primary source this repository implements (ch. 4): docs/fidelity.md maps it to the code. No DOI: none registered."
+    notes: "Roth's dissertation, as deposited in Cornell eCommons (whose record names no degree or grantor): the primary source this repository implements (ch. 4); docs/fidelity.md maps it to the code. No DOI: none registered."
   - type: software
     title: "ns3-swarm-core"
     authors:

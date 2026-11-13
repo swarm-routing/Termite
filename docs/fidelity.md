@@ -60,7 +60,7 @@ not GLOBECOM 2003; whether the two are the same text is not known.
 <!-- fidelity:sources:begin -->
 | Key | Citation | Link |
 |---|---|---|
-| R05 | Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, PhD thesis, Cornell University, 2005 | <https://hdl.handle.net/1813/240> |
+| R05 | Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, 2005 | <https://hdl.handle.net/1813/240> |
 | RW03 | Roth & Wicker, *Termite: ad-hoc networking with stigmergy*, GLOBECOM '03. IEEE Global Telecommunications Conference (IEEE Cat. No.03CH37489), 2003, pp. 2937–2941 | <https://doi.org/10.1109/glocom.2003.1258772> |
 | RW06 | Roth & Wicker, *Termite: A swarm intelligent routing algorithm for mobile wireless Ad-Hoc networks*, Stigmergic Optimization, 2006, pp. 155–184 | <https://doi.org/10.1007/978-3-540-34690-6_7> |
 | S97 | Schoonderwoerd et al., *Ant-Based Load Balancing in Telecommunications Networks*, Adaptive Behavior 5(2), 1997, pp. 169–207 | <https://doi.org/10.1177/105971239700500203> |
