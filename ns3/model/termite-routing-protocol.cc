@@ -23,8 +23,6 @@ namespace {
 /// EtherType of IPv4, the frames the promiscuous handler reads. Spelled out:
 /// ns-3 deprecates its protocol-number constants between releases.
 constexpr uint16_t kIpv4EtherType = 0x0800;
-/// IANA protocol number of UDP.
-constexpr uint8_t kUdpProtocol = 17;
 
 using swarm::core::RouteAction;
 
@@ -92,7 +90,8 @@ double RoutingProtocol::Pheromone(Ipv4Address destination, Ipv4Address neighbor)
 Ipv4Address RoutingProtocol::SelectNextHop(Ipv4Address /*dst*/, Ipv4Address /*src*/,
                                            Ipv4Address /*prev*/, Ptr<const Packet> /*p*/) {
     // No next hop in RouteOutput: the transport header is added after it, and
-    // the Termite header goes in front of the transport header. The base sends
+    // the Termite header goes right after a UDP header (in front of any other
+    // transport header), so it needs the transport header on. The base sends
     // the packet through the loopback device to RouteInput, which originates it.
     return Ipv4Address();
 }
@@ -123,11 +122,9 @@ bool RoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header& header,
     if (header.GetProtocol() == kUdpProtocol) {
         UdpHeader udp;
         // A control packet leaves a control socket bound to kTermitePort, so
-        // both its ports are kTermitePort and its first byte is 0x15. A data
-        // packet from a neighbour starts with the Termite header instead,
-        // whose first byte is kPacketWireVersion: the destination port alone
-        // would misread a source address's low bytes as the port.
-        static_assert(core::kPacketWireVersion != (kTermitePort >> 8));
+        // both its ports are kTermitePort. A data packet keeps its own UDP
+        // header first (the Termite header rides right after it, #95), so its
+        // ports are the application's.
         control = p->PeekHeader(udp) && udp.GetSourcePort() == kTermitePort &&
                   udp.GetDestinationPort() == kTermitePort;
     }
@@ -150,13 +147,15 @@ bool RoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header& header,
         Carry(d, d.message ? *d.message : in, p, own, iif, ucb, lcb, ecb);
         return true;
     }
-    // From a neighbour: the payload starts with the Termite header.
-    const auto h = ReadPacketHeader(p);
+    // From a neighbour: the Termite header rides after the UDP header (in
+    // front of any other transport header).
+    const uint8_t protocol = header.GetProtocol();
+    const auto h = ReadPacketHeader(p, protocol);
     if (!h || h->destination != ToNodeAddress(dst)) {
         NS_LOG_DEBUG("no valid Termite header on a data packet for " << dst);
         return false;
     }
-    Carry(m_router->onReceive(*h), *h, StripPacketHeader(p), header, iif, ucb, lcb, ecb);
+    Carry(m_router->onReceive(*h), *h, StripPacketHeader(p, protocol), header, iif, ucb, lcb, ecb);
     return true;
 }
 
@@ -171,8 +170,9 @@ void RoutingProtocol::Carry(const swarm::core::RouteDecision<core::PacketHeader>
     Ipv4Header out = header;
     switch (d.action) {
     case RouteAction::Unicast: {
-        // The core's header for this hop, in front of the transport header.
-        Ptr<Packet> q = AddPacketHeader(payload, *d.message);
+        // The core's header for this hop, right after the UDP header (in
+        // front of any other transport header).
+        Ptr<Packet> q = AddPacketHeader(payload, header.GetProtocol(), *d.message);
         out.SetPayloadSize(q->GetSize());
         ForwardData(q, out, next, ucb);
         return;
@@ -202,8 +202,8 @@ void RoutingProtocol::Overhear(Ptr<NetDevice> /*device*/, Ptr<const Packet> fram
     Ipv4Header ip;
     if (q->GetSize() < ip.GetSerializedSize()) return;
     q->RemoveHeader(ip);
-    if (ip.GetFragmentOffset() != 0) return;  // only a first fragment starts with the header
-    const auto h = ReadPacketHeader(q);
+    if (ip.GetFragmentOffset() != 0) return;  // only a first fragment carries the header
+    const auto h = ReadPacketHeader(q, ip.GetProtocol());
     if (!h || h->nextHop == m_router->self()) return;
     m_router->onReceive(*h);  // deposits once; an overheard frame is never forwarded
 }

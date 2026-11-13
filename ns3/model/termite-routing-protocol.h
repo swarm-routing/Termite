@@ -4,8 +4,8 @@
 // Termite's ns-3 adapter: an ns3::SwarmRoutingBase that hosts one
 // core::Router (core/termite-router.h) per node and carries out its decisions
 // (golden rule 10). It only converts: the core's header to and from the bytes
-// every data packet carries (TermiteHeader, between the IPv4 header and the
-// transport header), IPv4 addresses to core addresses, and the router's
+// every data packet carries (TermiteHeader, right after the UDP header, or in
+// front of any other transport header), IPv4 addresses to core addresses, and the router's
 // RouteDecisions into sends, deliveries and drops. Time, randomness and timers
 // are swarm-core's ports over ns-3 (Simulator::Schedule, a stream
 // AssignStreams pins), so a fixed seed gives byte-identical runs (org rule 5).

@@ -19,7 +19,7 @@ core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR G
   termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out); reports through swarm-core's IRouterObserver (docs/observer.md)
   test/               the core tests (plain CMake + ctest; the ns-3 suite runs the same list)
 ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-core
-  model/termite-header.*            the core's header as an ns3::Header, in front of the transport header of every data packet
+  model/termite-header.*            the core's header as an ns3::Header, right after the UDP header of every data packet (in front of any other transport header; #95)
   model/termite-routing-protocol.*  the adapter: SwarmRoutingBase carrying out the core's decisions, promiscuous reception
   helper/termite-helper.*           TermiteHelper (swarm-core's SwarmRoutingHelper)
   helper/termite-bench-arms.cc      the `termite` arm of ns3-tools' routing-compare (built only beside routing-bench)

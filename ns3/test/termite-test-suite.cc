@@ -73,6 +73,9 @@ private:
     ::termite::core::test::NamedTest m_test;
 };
 
+constexpr uint8_t kUdp = 17;  ///< the header rides after the UDP header
+constexpr uint8_t kTcp = 6;   ///< any other transport: the header rides in front
+
 std::vector<uint8_t> Bytes(Ptr<const Packet> p) {
     std::vector<uint8_t> b(p->GetSize());
     p->CopyData(b.data(), static_cast<uint32_t>(b.size()));
@@ -96,15 +99,15 @@ private:
         };
         const Ptr<Packet> payload = Create<Packet>(64);
         for (const PacketHeader& h : headers) {
-            Ptr<Packet> p = ns3::termite::AddPacketHeader(payload, h);
+            Ptr<Packet> p = ns3::termite::AddPacketHeader(payload, kTcp, h);
             NS_TEST_ASSERT_MSG_EQ(p->GetSize(), ::termite::core::kPacketWireSize + 64,
                                   "the header in front of the payload");
             NS_TEST_EXPECT_MSG_EQ(Bytes(p)[0], ::termite::core::kPacketWireVersion,
                                   "leading version byte");
-            const auto read = ns3::termite::ReadPacketHeader(p);
+            const auto read = ns3::termite::ReadPacketHeader(p, kTcp);
             NS_TEST_ASSERT_MSG_EQ(read.has_value(), true, "reads");
             NS_TEST_EXPECT_MSG_EQ((*read == h), true, "same header back");
-            NS_TEST_EXPECT_MSG_EQ(ns3::termite::StripPacketHeader(p)->GetSize(), 64u,
+            NS_TEST_EXPECT_MSG_EQ(ns3::termite::StripPacketHeader(p, kTcp)->GetSize(), 64u,
                                   "stripped back to the payload");
             ns3::termite::TermiteHeader th;
             NS_TEST_EXPECT_MSG_EQ(p->Copy()->RemoveHeader(th), ::termite::core::kPacketWireSize,
@@ -113,7 +116,7 @@ private:
             NS_TEST_EXPECT_MSG_EQ((th.Get() == h), true, "same header through TermiteHeader");
         }
         // The core's byte layout, little endian (core/termite-packet.h).
-        const auto b = Bytes(ns3::termite::AddPacketHeader(Create<Packet>(), headers[0]));
+        const auto b = Bytes(ns3::termite::AddPacketHeader(Create<Packet>(), kTcp, headers[0]));
         const std::vector<uint8_t> want{1,    1,    0x01, 0x00, 0x01, 0x0A, 0x04, 0x00,
                                         0x01, 0x0A, 0x02, 0x00, 0x01, 0x0A, 0x03, 0x00,
                                         0x01, 0x0A, 1,    0,    0,    0,    32};
@@ -121,11 +124,42 @@ private:
         // A wrong version: refused, and invalid through the header.
         std::vector<uint8_t> bad = want;
         bad[0] = ::termite::core::kPacketWireVersion + 1;
-        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(FromBytes(bad)).has_value(), false,
-                              "a wrong version is refused");
+        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(FromBytes(bad), kTcp).has_value(),
+                              false, "a wrong version is refused");
         ns3::termite::TermiteHeader th;
         FromBytes(bad)->RemoveHeader(th);
         NS_TEST_EXPECT_MSG_EQ(th.IsValid(), false, "a wrong version is invalid");
+
+        // In a UDP datagram the header rides right after the UDP header, so the
+        // ports after the IPv4 header stay the datagram's own (#95).
+        Ptr<Packet> datagram = Create<Packet>(64);
+        UdpHeader udp;
+        udp.SetSourcePort(49153);
+        udp.SetDestinationPort(9);
+        datagram->AddHeader(udp);
+        const std::vector<uint8_t> original = Bytes(datagram);
+        Ptr<Packet> on = ns3::termite::AddPacketHeader(datagram, kUdp, headers[0]);
+        NS_TEST_ASSERT_MSG_EQ(on->GetSize(), 8 + ::termite::core::kPacketWireSize + 64,
+                              "UDP + Termite + data");
+        const auto bytes = Bytes(on);
+        UdpHeader first;
+        on->PeekHeader(first);
+        NS_TEST_EXPECT_MSG_EQ(first.GetSourcePort(), 49153, "the source port reads as before");
+        NS_TEST_EXPECT_MSG_EQ(first.GetDestinationPort(), 9, "the data port reads as before");
+        NS_TEST_EXPECT_MSG_EQ(((uint32_t{bytes[4]} << 8) | bytes[5]), on->GetSize(),
+                              "the UDP length covers the header it carries");
+        NS_TEST_EXPECT_MSG_EQ(bytes[8], ::termite::core::kPacketWireVersion,
+                              "the header's version byte at byte 8");
+        const auto read = ns3::termite::ReadPacketHeader(on, kUdp);
+        NS_TEST_ASSERT_MSG_EQ(read.has_value(), true, "reads after the UDP header");
+        NS_TEST_EXPECT_MSG_EQ((*read == headers[0]), true, "same header back");
+        NS_TEST_EXPECT_MSG_EQ((Bytes(ns3::termite::StripPacketHeader(on, kUdp)) == original), true,
+                              "stripped back to the datagram, byte for byte");
+        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(datagram, kUdp).has_value(), false,
+                              "a plain datagram has no header");
+        NS_TEST_EXPECT_MSG_EQ(
+            ns3::termite::ReadPacketHeader(FromBytes(std::vector<uint8_t>(7, 1)), kUdp).has_value(),
+            false, "shorter than a UDP header");
     }
 };
 
@@ -163,7 +197,7 @@ private:
                 if (shape == 1) b.resize(Mix(s) % b.size());
                 if (shape == 2) b.resize(b.size() + Mix(s) % 16, static_cast<uint8_t>(Mix(s)));
             }
-            const auto h = ns3::termite::ReadPacketHeader(FromBytes(b));
+            const auto h = ns3::termite::ReadPacketHeader(FromBytes(b), kTcp);
             if (!h) continue;
             ++accepted;
             // Whatever is accepted is one canonical header followed by the rest.
@@ -175,15 +209,16 @@ private:
                 "accepted bytes re-encode identically");
         }
         NS_TEST_EXPECT_MSG_GT(accepted, 0u, "the fuzz reaches the accepting path");
-        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(Create<Packet>()).has_value(), false,
-                              "empty payload");
+        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(Create<Packet>(), kTcp).has_value(),
+                              false, "empty payload");
         std::vector<uint8_t> type = valid;
         type[1] = 6;
-        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(FromBytes(type)).has_value(), false,
-                              "unknown type");
+        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(FromBytes(type), kTcp).has_value(),
+                              false, "unknown type");
         std::vector<uint8_t> shortened(valid.begin(), valid.end() - 1);
-        NS_TEST_EXPECT_MSG_EQ(ns3::termite::ReadPacketHeader(FromBytes(shortened)).has_value(),
-                              false, "one byte short");
+        NS_TEST_EXPECT_MSG_EQ(
+            ns3::termite::ReadPacketHeader(FromBytes(shortened), kTcp).has_value(), false,
+            "one byte short");
     }
 };
 
@@ -277,8 +312,8 @@ public:
     Ipv4Address Addr(uint32_t i) const { return m_ifs.GetAddress(i); }
     Ptr<Ipv4L3Protocol> L3(uint32_t i) const { return m_nodes.Get(i)->GetObject<Ipv4L3Protocol>(); }
 
-    /// At `at`, node `from` sends the frame a Termite node would: `h` in front
-    /// of a UDP datagram to kTrailPort, in an IPv4 packet from h.source to
+    /// At `at`, node `from` sends the frame a Termite node would: `h` right
+    /// after the UDP header of a datagram to kTrailPort, in an IPv4 packet from h.source to
     /// h.destination, to node `to`'s MAC address. No routing at `from`.
     void Lay(double at, uint32_t from, uint32_t to, const PacketHeader& h) {
         Simulator::Schedule(Seconds(at), &Net::SendRaw, this, from, to, h);
@@ -319,7 +354,7 @@ private:
         udp.SetSourcePort(kTrailPort);
         udp.SetDestinationPort(kTrailPort);
         p->AddHeader(udp);
-        p->AddHeader(ns3::termite::TermiteHeader(h));
+        p = ns3::termite::AddPacketHeader(p, kUdp, h);
         Ipv4Header ip;
         ip.SetSource(ToIpv4Address(h.source));
         ip.SetDestination(ToIpv4Address(h.destination));
@@ -398,6 +433,26 @@ void FirstDataTx(std::vector<uint8_t>* out, Ptr<const Packet> p, Ptr<Ipv4>, uint
     if (ip.GetProtocol() == 17) *out = Bytes(p);
 }
 
+/// Ipv4L3Protocol "Tx" on every interface, classified as routing-bench's
+/// control count does (swarm-routing/ns3-tools `routing-bench-run.cc`
+/// CountControlTx): a UDP packet whose first fragment's UDP destination port,
+/// read right after the IPv4 header, is not the data port is control (#95).
+struct TxCount {
+    uint32_t udp = 0;      ///< UDP packets sent on a radio interface
+    uint32_t control = 0;  ///< of them, what routing-bench would count as control
+};
+void CountTx(TxCount* c, Ptr<const Packet> p, Ptr<Ipv4>, uint32_t iface) {
+    if (iface == 0) return;  // the loopback is no hop
+    Ptr<Packet> q = p->Copy();
+    Ipv4Header ip;
+    q->RemoveHeader(ip);
+    if (ip.GetProtocol() != 17 || ip.GetFragmentOffset() != 0) return;
+    UdpHeader udp;
+    q->PeekHeader(udp);
+    ++c->udp;
+    if (udp.GetDestinationPort() != kDataPort) ++c->control;
+}
+
 /// Ipv4L3Protocol "Drop": counts the drops a routing protocol reported.
 void RouteDrop(uint32_t* drops, const Ipv4Header&, Ptr<const Packet>, Ipv4L3Protocol::DropReason r,
                Ptr<Ipv4>, uint32_t) {
@@ -421,6 +476,13 @@ private:
         n.L3(0)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&FirstDataTx, &firstTx));
         uint32_t routeDrops = 0;
         n.L3(0)->TraceConnectWithoutContext("Drop", MakeBoundCallback(&RouteDrop, &routeDrops));
+        // Every UDP packet on the air from the data sends on; the trail-laying
+        // frames (sent to kTrailPort before 1 s) are not this run's data.
+        TxCount tx;
+        Simulator::Schedule(Seconds(0.9), [&] {
+            for (uint32_t i = 0; i < 4; ++i)
+                n.L3(i)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&CountTx, &tx));
+        });
         n.Send(1.0, 0.25, 10, 0, n.Addr(3));
         n.Send(4.0, 0.25, 5, 3, n.Addr(0));
         n.Send(6.0, 0.25, 1, 0, Ipv4Address("10.1.1.250"));  // nobody's address
@@ -433,15 +495,25 @@ private:
         // Three radio hops, and none counted for the source's loopback.
         NS_TEST_EXPECT_MSG_EQ((n.ttls == std::set<uint32_t>{62}), true, "IPv4 TTL 64 - 2 relays");
 
-        // On the air: IPv4, then the core's header, then UDP and the data.
-        NS_TEST_ASSERT_MSG_EQ(firstTx.size(), 20 + ::termite::core::kPacketWireSize + 8 + kPayload,
-                              "IPv4 + Termite + UDP + data");
-        const auto h = ns3::termite::ReadPacketHeader(
-            FromBytes(std::vector<uint8_t>(firstTx.begin() + 20, firstTx.end())));
-        NS_TEST_ASSERT_MSG_EQ(h.has_value(), true, "the header follows the IPv4 header");
+        // On the air: IPv4, UDP, then the core's header and the data (#95).
+        NS_TEST_ASSERT_MSG_EQ(firstTx.size(), 20 + 8 + ::termite::core::kPacketWireSize + kPayload,
+                              "IPv4 + UDP + Termite + data");
+        const Ptr<Packet> ipPayload =
+            FromBytes(std::vector<uint8_t>(firstTx.begin() + 20, firstTx.end()));
+        UdpHeader udp;
+        ipPayload->PeekHeader(udp);
+        NS_TEST_EXPECT_MSG_EQ(udp.GetDestinationPort(), kDataPort,
+                              "the UDP header follows the IPv4 header");
+        const auto h = ns3::termite::ReadPacketHeader(ipPayload, kUdp);
+        NS_TEST_ASSERT_MSG_EQ(h.has_value(), true, "the header follows the UDP header");
         const PacketHeader want{PacketType::Data, n.Core(0), n.Core(3), n.Core(0),
                                 n.Core(1),        0,         31};
         NS_TEST_EXPECT_MSG_EQ((*h == want), true, "source 0, to 3, next hop 1, ID 0, TTL 32 - 1");
+
+        // routing-bench's control count sees data as data: 10 packets over
+        // three hops and 5 back over three, and no control (#95).
+        NS_TEST_EXPECT_MSG_EQ(tx.udp, 45u, "every data hop on the air");
+        NS_TEST_EXPECT_MSG_EQ(tx.control, 0u, "no data hop counted as routing control");
 
         // The packet to an unknown destination: dropped at once, never held.
         NS_TEST_EXPECT_MSG_EQ(routeDrops, 1u, "one route drop at node 0");
@@ -458,10 +530,11 @@ private:
     }
 };
 
-/// A data packet's payload starts with the Termite header, whose bytes 2-3 are
-/// the low bytes of the source address: for 10.1.166.21 they read 0x15A6, the
-/// control port, if taken for a UDP header. Such a source's data must still be
-/// routed (CodeRabbit on #37).
+/// The Termite header's bytes 2-3 are the low bytes of the source address: for
+/// 10.1.166.21 they read 0x15A6, the control port, if taken for a UDP header.
+/// When the header rode in front of the UDP header, such a source's data had
+/// to be told from control (CodeRabbit on #37); it rides after it now (#95),
+/// and the data must still be routed.
 class ControlLookalikeTestCase : public TestCase {
 public:
     ControlLookalikeTestCase()
