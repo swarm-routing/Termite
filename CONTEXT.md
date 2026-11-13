@@ -20,8 +20,8 @@ Terms as [`docs/fidelity.md`](docs/fidelity.md) uses them, for the ch. 4 version
 
 - **Pheromone table**: a node's routing state, entries P(i, d): the pheromone on neighbour i for destination d ([R05] §4.2.1). `core/` keys it (destination, neighbour) on swarm-core's table.
 - **Row**: one neighbour's entries, across every known destination. A row whose entries have all decayed to the floor removes the neighbour.
-- **Column**: one destination's entries, across every neighbour. A column whose entries have all decayed to the floor is removed, and the destination is unknown again.
-- **γc**: the constant a packet deposits (eq. 4.1): a packet from source s arriving from previous hop r adds γc to P(r, s) at every node that receives it. Ch. 4 gives no value; `core/` uses 1 as a placeholder (#6).
+- **Column**: one destination's entries, across every neighbour. A column whose entries have all decayed to the floor is removed, and the destination is unknown again; a neighbour's own column stays until its row has gone too.
+- **γc**: the constant a packet deposits (eq. 4.1): a packet from source s arriving from previous hop r adds γc to P(r, s) at every node that receives or overhears it, once per node: a later copy of the same packet (same source and message ID, while the capped deposited-ID record still holds it) deposits nothing. Ch. 4 gives no value; `core/` uses 1 as a placeholder (#6).
 - **F**: the pheromone sensitivity, the exponent of eq. 4.3's forwarding draw: F > 1 sharpens the preference for the strongest link, F = 1 only normalises. Ch. 4 gives no value; `core/` uses 10 as a placeholder (#6).
 - **K**: the pheromone threshold added to every entry in eq. 4.3 before the exponent, so weaker links keep some probability. Nominal value 0.
 - **Floor, ceiling**: the bounds of an entry (0.1 and 10000, Table 4.1); no entry decays below the floor or exceeds the ceiling.

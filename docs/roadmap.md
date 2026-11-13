@@ -77,6 +77,9 @@ flowchart TB
     I22 -.-> I4
     I6 --> I80
     I4 --> I80
+    I22 --> I80
+    I42 --> I80
+    I43 --> I80
     SC10 --> I80
 
     style I6 fill:#e8e6f8,stroke:#5b4fc4,stroke-width:2px
