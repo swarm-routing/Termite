@@ -42,10 +42,12 @@ cmake -S core -B build/asan -DTERMITE_CORE_SANITIZE=ON -DSWARM_CORE_DIR=/path/to
 
 It fetches swarm-core at `SWARM_CORE_REF` unless `SWARM_CORE_DIR` names a
 checkout's `core/`; bump the pin together with `core-deps` in
-`.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, and
-`SWARM_CORE_REF` in the `Makefile`. The ns-3 module builds on swarm-core
+`.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, the
+`swarm-core=` line under `dependencies:` in
+`.github/workflows/benchmark-cell.yml`, and `SWARM_CORE_REF` in the
+`Makefile`. The ns-3 module builds on swarm-core
 `main` instead; the `swarm-core / pin` check (`swarm-core-pin.yml`) fails when main's `core/` is no
-longer the pinned one, or when the four places name different SHAs, so a
+longer the pinned one, or when the five places name different SHAs, so a
 swarm-core change is met by a pin bump here.
 
 CI for `ns3/` is [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.github/blob/main/.github/workflows/reusable-ns3-ci.yml) (`.github/workflows/ns3.yml`): the module builds inside `ghcr.io/swarm-routing/ns3-dev:latest-{debug,sanitized}` with strict warnings, coverage and SonarQube Cloud, and runs `test.py -s termite`. Locally:

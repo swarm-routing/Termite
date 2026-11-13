@@ -1,6 +1,7 @@
 # What the core reports to swarm-core's router observer
 
-Part of swarm-routing/Termite#41 (swarm-routing/ns3-swarm-core#42, #44). The
+Added by swarm-routing/Termite#41 (closed 2026-11-11; the swarm-core side is
+swarm-routing/ns3-swarm-core#42 and swarm-routing/ns3-swarm-core#44). The
 `Router` takes an optional `swarm::core::IRouterObserver*`
 (`Router::setObserver`; null, the default, is one pointer check per event). An
 observer only reads: no decision, random draw or table change depends on it
@@ -28,5 +29,28 @@ header's constant size, known from `kPacketWireSize`, not a counter.
 ## Kind names
 
 `kPacketKindNames` (`termite-packet.h`) names the type bytes (`DATA`, `HELLO`,
-`SEED`, `RREQ`, `RREP`), for `SwarmRoutingHelper::SetKindNames` once the ns-3
-adapter lands (#37).
+`SEED`, `RREQ`, `RREP`). The ns-3 adapter registers the table itself (next
+section), so a scenario does not call `SwarmRoutingHelper::SetKindNames` for
+Termite; a table set through it later replaces this one.
+
+## The ns-3 half
+
+The adapter (`ns3/model/termite-routing-protocol.cc`) does two things and adds
+no observer code of its own:
+
+- `RoutingProtocol::GetTypeId()` registers the kind names once, with the
+  TypeId: `SwarmRoutingBase::SetKindNames(tid, core::kPacketKindNames)`.
+- `DoInitialize()` hands the core swarm-core's observer:
+  `m_router->setObserver(&Observer())`.
+
+From there the events above reach swarm-core's `SwarmRoutingBase`
+(`model/swarm-routing-base.h` in swarm-routing/ns3-swarm-core): its trace
+sources `ControlTx`, `ControlRx`, `RouteChanged`, `DataDecision` and
+`StateSize`, the per-node counters of `GetRouterStats()`, and
+`SwarmRoutingHelper::CollectStats` over a set of nodes.
+
+`ObserverTestCase` in `ns3/test/termite-test-suite.cc` (`test.py -s termite`)
+covers it on a four-node diamond: `RouteChanged`, `DataDecision` and
+`StateSize` fire, no control event fires (a data header is not control),
+`GetKindName(GetTypeId(), 4)` is `RREQ`, and the run with the sources
+connected has the same trace and the same delivery as the run without them.
