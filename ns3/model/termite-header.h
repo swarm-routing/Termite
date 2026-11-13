@@ -8,8 +8,11 @@
 // core share one encoder and one decoder. Written fresh for this module.
 //
 // Termite's routing state rides inside data packets ([R05] §4.2.6): every
-// data packet carries this header between its IPv4 header and its transport
-// header, on every hop (docs/fidelity.md, "ch. 4: packet fields"). The IPv4
+// data packet carries this header on every hop (docs/fidelity.md, "ch. 4:
+// packet fields"). In a UDP datagram it rides right after the UDP header, so
+// whatever reads the ports on the way (routing-bench counts routing control
+// as UDP not addressed to the data port, #95) still sees a data packet; in
+// any other IPv4 payload it rides in front of the transport header. The IPv4
 // protocol field keeps naming the transport; the adapter adds the header
 // where a packet enters the radio and removes it before local delivery.
 //
@@ -26,6 +29,7 @@
 #include "ns3/packet.h"
 #include "ns3/ptr.h"
 
+#include <cstdint>
 #include <optional>
 
 namespace ns3 {
@@ -56,18 +60,23 @@ private:
     bool m_valid = false;
 };
 
-/// The header a packet's payload starts with, or nullopt when its first
-/// kPacketWireSize bytes are not one valid header (core::decodePacket's rules;
-/// a shorter payload is refused). The bytes after it are not read.
-std::optional<core::PacketHeader> ReadPacketHeader(Ptr<const Packet> p);
+/// IANA protocol number of UDP: the transport the header rides behind.
+inline constexpr uint8_t kUdpProtocol = 17;
 
-/// A copy of `payload` (an IPv4 payload: transport header and data) with `h`
-/// in front.
-Ptr<Packet> AddPacketHeader(Ptr<const Packet> payload, const core::PacketHeader& h);
+/// The header of an IPv4 payload of `protocol` (after the UDP header for UDP;
+/// at the front otherwise), or nullopt when the kPacketWireSize bytes there
+/// are not one valid header (core::decodePacket's rules; a shorter payload is
+/// refused). The bytes after it are not read.
+std::optional<core::PacketHeader> ReadPacketHeader(Ptr<const Packet> p, uint8_t protocol);
 
-/// A copy of `p` without its first kPacketWireSize bytes (the header
-/// ReadPacketHeader accepted).
-Ptr<Packet> StripPacketHeader(Ptr<const Packet> p);
+/// A copy of `payload` (an IPv4 payload of `protocol`: transport header and
+/// data) carrying `h` where ReadPacketHeader looks for it; its tags come along.
+Ptr<Packet> AddPacketHeader(Ptr<const Packet> payload, uint8_t protocol,
+                            const core::PacketHeader& h);
+
+/// A copy of `p` without the kPacketWireSize bytes of the header
+/// ReadPacketHeader accepted.
+Ptr<Packet> StripPacketHeader(Ptr<const Packet> p, uint8_t protocol);
 
 }  // namespace termite
 }  // namespace ns3

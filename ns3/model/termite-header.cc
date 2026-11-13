@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "termite-header.h"
 
+#include "ns3/udp-header.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <vector>
@@ -54,22 +56,44 @@ void TermiteHeader::Print(std::ostream& os) const {
        << " ttl=" << static_cast<uint32_t>(m_header.ttl);
 }
 
-std::optional<core::PacketHeader> ReadPacketHeader(Ptr<const Packet> p) {
-    if (!p || p->GetSize() < core::kPacketWireSize) return std::nullopt;
-    std::vector<uint8_t> bytes(core::kPacketWireSize);
+namespace {
+
+/// True when the header sits after a UDP header in `p`: a UDP payload long
+/// enough to hold one.
+bool AfterUdp(Ptr<const Packet> p, uint8_t protocol) {
+    return protocol == kUdpProtocol && p->GetSize() >= UdpHeader().GetSerializedSize();
+}
+
+}  // namespace
+
+std::optional<core::PacketHeader> ReadPacketHeader(Ptr<const Packet> p, uint8_t protocol) {
+    if (!p) return std::nullopt;
+    const uint32_t at = protocol == kUdpProtocol ? UdpHeader().GetSerializedSize() : 0;
+    if (p->GetSize() < at + core::kPacketWireSize) return std::nullopt;
+    std::vector<uint8_t> bytes(at + core::kPacketWireSize);
     p->CopyData(bytes.data(), static_cast<uint32_t>(bytes.size()));
+    bytes.erase(bytes.begin(), bytes.begin() + at);
     return core::decodePacket(bytes);
 }
 
-Ptr<Packet> AddPacketHeader(Ptr<const Packet> payload, const core::PacketHeader& h) {
+Ptr<Packet> AddPacketHeader(Ptr<const Packet> payload, uint8_t protocol,
+                            const core::PacketHeader& h) {
     Ptr<Packet> q = payload->Copy();
+    UdpHeader udp;
+    const bool afterUdp = AfterUdp(q, protocol);
+    if (afterUdp) q->RemoveHeader(udp);
     q->AddHeader(TermiteHeader(h));
+    if (afterUdp) q->AddHeader(udp);
     return q;
 }
 
-Ptr<Packet> StripPacketHeader(Ptr<const Packet> p) {
+Ptr<Packet> StripPacketHeader(Ptr<const Packet> p, uint8_t protocol) {
     Ptr<Packet> q = p->Copy();
+    UdpHeader udp;
+    const bool afterUdp = AfterUdp(q, protocol);
+    if (afterUdp) q->RemoveHeader(udp);
     q->RemoveAtStart(static_cast<uint32_t>(core::kPacketWireSize));
+    if (afterUdp) q->AddHeader(udp);
     return q;
 }
 
