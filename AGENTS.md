@@ -13,7 +13,7 @@ Termite (Roth & Wicker; GLOBECOM 2003, SIDM 2005, Roth's 2005 Cornell dissertati
 
 ```
 core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR GPL-2.0-only, core/LICENSE),
-            on swarm-core's dual-licensed core/ primitives (pinned: SWARM_CORE_REF in core/CMakeLists.txt)
+            on swarm-core's dual-licensed core/ primitives (pinned: the release in swarm-core.lock)
   termite-config.h    the ch. 4 constants, each citing its docs/fidelity.md row
   termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
   termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out); reports through swarm-core's IRouterObserver (docs/observer.md)
@@ -26,7 +26,7 @@ ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-co
   test/termite-test-suite.cc        `test.py -s termite`: the core tests, header roundtrip and fuzz, the adapter on static topologies, determinism
 docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis; observer.md (what the core reports, how data headers are counted)
 .github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
-.github/workflows/ns3.yml    ns3/ in ns3-dev on swarm-core main, with routing-bench
+.github/workflows/ns3.yml    ns3/ in ns3-dev on the swarm-core release in swarm-core.lock, with routing-bench at a release; canary on main
 .github/workflows/benchmark-cell.yml   one benchmark cell at a pinned source_sha (reusable-benchmark-cell.yml, build mode); dispatched by ns3-campaign
 tools/bench/campaigns/   campaign plans: smoke.yaml (the change-test smoke against the base)
 ```
@@ -40,15 +40,24 @@ make core-test    # cmake -S core -B build/core && cmake --build build/core && c
 cmake -S core -B build/asan -DTERMITE_CORE_SANITIZE=ON -DSWARM_CORE_DIR=/path/to/ns3-swarm-core/core   # a local swarm-core
 ```
 
-It fetches swarm-core at `SWARM_CORE_REF` unless `SWARM_CORE_DIR` names a
-checkout's `core/`; bump the pin together with `core-deps` in
-`.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, the
-`swarm-core=` line under `dependencies:` in
-`.github/workflows/benchmark-cell.yml`, and `SWARM_CORE_REF` in the
-`Makefile`. The ns-3 module builds on swarm-core
-`main` instead; the `swarm-core / pin` check (`swarm-core-pin.yml`) fails when main's `core/` is no
-longer the pinned one, or when the five places name different SHAs, so a
-swarm-core change is met by a pin bump here.
+It fetches the swarm-core release `swarm-core.lock` names (tag, commit,
+version, and the SHA256 of `swarm-core-<ver>.tar.gz` from the release's
+`SHA256SUMS`; swarm-routing/ns3-swarm-core#134) by `URL` + `URL_HASH`, unless
+`SWARM_CORE_DIR` names a checkout's `core/` (development against an
+unreleased swarm-core). The `Makefile`'s `SWARM_CORE_REF`, `core-deps` in
+`.github/workflows/licence.yml` and `.github/workflows/ns3.yml`, and the ns-3
+build's `swarm-core=` dependency name the lock's tag; the `swarm-core=` line
+of `.github/workflows/benchmark-cell.yml` names the commit the tag names
+(a cell's build mode takes a commit). Never bump by hand: the
+`swarm-core / pin` check (`swarm-core-pin.yml`, swarm-routing/.github
+`check-swarm-core-pin.py` in lock mode) verifies the lock against the release
+and fails only when a newer swarm-core release is out, and org-bot's
+`swarm-core-pin` task then opens the bump PR with the lock written from that
+release. The ns-3 CI builds on released swarm-core and ns3-tools tags; its
+`canary-dependencies` leg builds on their `main` on push, schedule and
+dispatch, never on a PR, and never fails the run (swarm-routing/.github#411).
+`[review] moving_refs = "fail"` in `.github/org-sync.toml` makes the
+`protocol-review` check fail on a new dependency on a moving ref.
 
 CI for `ns3/` is [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.github/blob/main/.github/workflows/reusable-ns3-ci.yml) (`.github/workflows/ns3.yml`): the module builds inside `ghcr.io/swarm-routing/ns3-dev:latest-{debug,sanitized}` with strict warnings, coverage and SonarQube Cloud, and runs `test.py -s termite`. Locally:
 
@@ -67,8 +76,8 @@ container, also mount `swarm-routing/ns3-tools` at `/src/ns3-tools`, add
 `routing-bench=/src/ns3-tools/ns3/routing-bench` before `termite=`, and pass
 `--run "routing-compare --scenario=paper --nNodes=20 --time=30 --runs=1
 --protocols=termite"` to `ns3-build-contrib`. CI passes `dependencies:
-swarm-core=swarm-routing/ns3-swarm-core@main` and
-`routing-bench=swarm-routing/ns3-tools@main:ns3/routing-bench` and runs that
+swarm-core=swarm-routing/ns3-swarm-core@<swarm-core.lock's tag>` and
+`routing-bench=swarm-routing/ns3-tools@<an ns3-tools release>:ns3/routing-bench` (releases; the same at `@main` in `canary-dependencies`, a non-blocking leg outside PRs) and runs that
 `routing-compare` line as the smoke. Until the core can learn a destination
 it has not heard from (#6), the arm delivers nothing there (PDR 0, every drop
 a route drop); the smoke checks that it registers and runs clean. The
@@ -80,7 +89,7 @@ run here, released versions in swarm-routing/benchmarks (its ADR-0002).
 `.github/workflows/benchmark-cell.yml` is a thin caller of
 swarm-routing/.github's `reusable-benchmark-cell.yml` in build mode: each cell
 checks out its `source_sha`, builds `termite` with swarm-core at
-`SWARM_CORE_REF` and routing-bench at a pinned ns3-tools commit on the ns3-dev
+the commit `swarm-core.lock` names and routing-bench at a pinned ns3-tools commit on the ns3-dev
 image given by digest, and runs `routing-compare`. Campaign plans live in
 `tools/bench/campaigns/` and run through `ns3-campaign` (swarm-routing/ns3-tools
 `python/ns3_tool/change_plan.py`; its docstring is the plan format).
@@ -109,6 +118,32 @@ not merge a change to that file's `dependencies` while a campaign is in
 flight, or its later cells are rejected.
 State lives in `.campaign/<generation>/` (git-ignored); a cell's artifact is
 kept 7 days.
+
+<!-- org-sync:begin dependencies -->
+## How this repository gets swarm-core and ns3-tools
+
+- **swarm-core's `core/`**: `swarm-core.lock` names one swarm-core release
+  (repository, tag, the commit the tag names, version, and the SHA256 of
+  `swarm-core-<ver>.tar.gz` from the release's `SHA256SUMS`);
+  `core/CMakeLists.txt` reads it and fetches the tarball with CMake
+  `FetchContent` `URL` + `URL_HASH`. The `Makefile` and every workflow's
+  swarm-core `core-deps` and ns-3 dependency name the lock's tag.
+- **Bumping**: never by hand. The `swarm-core / pin` check (swarm-routing/.github
+  `tools/checks/check-swarm-core-pin.py`, lock mode) verifies the lock against
+  the release and fails when a newer swarm-core release is out; org-bot's
+  `swarm-core-pin` task then opens the bump PR (`org-bot/swarm-core-pin`) with
+  the lock written from that release. Between releases nothing moves.
+  `python3 -I ../.github/tools/checks/release_lock.py verify swarm-core.lock`
+  checks it locally.
+- **The ns-3 build**: `dependencies` of `reusable-ns3-ci.yml` names release
+  tags; `canary-dependencies` names `@main`, one non-blocking leg on push,
+  schedule and dispatch, never on a PR (swarm-routing/.github#411). A red
+  canary on `main` means the next release of a dependency needs work here.
+- **Working against an unreleased swarm-core**: `-DSWARM_CORE_DIR=<checkout>/core`
+  builds `core/` on a local checkout instead of the lock (development only).
+- **Later**: `find_package(swarm-core CONFIG)` from an installed release, then
+  a vcpkg registry (swarm-routing/ns3-swarm-core#135).
+<!-- org-sync:end dependencies -->
 
 ## Golden rules (invariants — do not break)
 
