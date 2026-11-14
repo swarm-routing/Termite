@@ -25,44 +25,43 @@ set(SWARM_CORE_REF "69664219b2edc63995614332cf9f651b1720622b" CACHE STRING
     "swarm-routing/ns3-swarm-core commit to fetch when SWARM_CORE_DIR is empty")
 option(TERMITE_CORE_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
-if(NOT SWARM_CORE_DIR)
+# Sanitizer flags first: they are directory options, so swarm-core's sources,
+# added below, are instrumented too.
+if(TERMITE_CORE_SANITIZE)
+  add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address,undefined)
+endif()
+
+# swarm-core's core/ as a subproject: it defines the library target
+# swarm::core (its own source list, so a new core/*.cc needs no edit here) and
+# nothing else: no test target, no ctest entry, no -Werror on our sources
+# (swarm-routing/ns3-swarm-core#100; its README "Use core/ from another CMake
+# project").
+if(SWARM_CORE_DIR)
+  if(NOT EXISTS "${SWARM_CORE_DIR}/swarm-ports.h")
+    message(FATAL_ERROR "SWARM_CORE_DIR=${SWARM_CORE_DIR} is not swarm-core's core/ directory")
+  endif()
+  add_subdirectory(${SWARM_CORE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/swarm-core)
+else()
   include(FetchContent)
-  # SOURCE_SUBDIR names a directory without a CMakeLists.txt, so the checkout
-  # is only populated: swarm-core's own targets and tests are not added here.
   FetchContent_Declare(swarm_core_src
     GIT_REPOSITORY https://github.com/swarm-routing/ns3-swarm-core.git
     GIT_TAG ${SWARM_CORE_REF}
-    SOURCE_SUBDIR fetch-only)
+    SOURCE_SUBDIR core)
   FetchContent_MakeAvailable(swarm_core_src)
-  set(SWARM_CORE_DIR "${swarm_core_src_SOURCE_DIR}/core")
-endif()
-if(NOT EXISTS "${SWARM_CORE_DIR}/swarm-ports.h")
-  message(FATAL_ERROR "SWARM_CORE_DIR=${SWARM_CORE_DIR} is not swarm-core's core/ directory")
 endif()
 
 # The strict warnings the org CI applies (ns3-containers' swarm-quality.cmake),
 # on Termite's own sources only.
 set(TERMITE_WARNINGS -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor -Wold-style-cast
                      -Wcast-align -Woverloaded-virtual -Wnull-dereference -Wformat=2 -Werror)
-if(TERMITE_CORE_SANITIZE)
-  add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_link_options(-fsanitize=address,undefined)
-endif()
-
-add_library(swarm_core_primitives STATIC
-  ${SWARM_CORE_DIR}/swarm-dedup-history.cc
-  ${SWARM_CORE_DIR}/swarm-observer.cc
-  ${SWARM_CORE_DIR}/swarm-pheromone-table.cc
-  ${SWARM_CORE_DIR}/swarm-selection.cc
-)
-target_include_directories(swarm_core_primitives PUBLIC ${SWARM_CORE_DIR})
 
 add_library(termite_core STATIC
   termite-packet.cc
   termite-router.cc
 )
 target_include_directories(termite_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(termite_core PUBLIC swarm_core_primitives)
+target_link_libraries(termite_core PUBLIC swarm::core)
 target_compile_options(termite_core PRIVATE ${TERMITE_WARNINGS})
 
 add_executable(termite_core_tests
