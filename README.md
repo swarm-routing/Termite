@@ -41,7 +41,7 @@ Each release also has its own **version DOI**, listed on [its Zenodo record](htt
 Please also cite the work it builds on:
 
 - M. Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, Cornell University, 2005, <https://hdl.handle.net/1813/240> (no DOI: none registered). Roth's dissertation, as deposited in Cornell eCommons: the primary source this repository implements (ch. 4); docs/fidelity.md maps it to the code. Degree and school from the dissertation's title page; the eCommons record names neither.
-- D. H. Joppi, *ns3-swarm-core*, 2026, [doi:10.5281/zenodo.24138628](https://doi.org/10.5281/zenodo.24138628). The shared primitives core/ builds on (pinned by commit: SWARM_CORE_REF) and the ns-3 base the adapter derives from (SwarmRoutingBase).
+- D. H. Joppi, *ns3-swarm-core*, 2026, [doi:10.5281/zenodo.24138628](https://doi.org/10.5281/zenodo.24138628). The shared primitives core/ builds on (pinned by release: swarm-core.lock) and the ns-3 base the adapter derives from (SwarmRoutingBase).
 
 What this implementation reproduces from its sources, and every deliberate deviation, is in [docs/fidelity.md](docs/fidelity.md).
 
