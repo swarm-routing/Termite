@@ -13,8 +13,26 @@
 # SWARM_CORE_DIR: a local swarm-core core/ directory (development against an
 # unreleased swarm-core); empty fetches the release ../swarm-core.lock names.
 # TERMITE_CORE_SANITIZE=ON adds ASan + UBSan, as the sanitized CI leg.
+# TERMITE_CORE_TESTS builds the tests (ON at the top level).
+# TERMITE_CORE_SWARM_CORE_FROM_PACKAGE=ON takes swarm-core from an installed
+# package (find_package(swarm-core CONFIG), e.g. its vcpkg port) instead of
+# the lock; TERMITE_CORE_INSTALL=ON (which needs it) adds the install rules and
+# the CMake package termite-core: find_package(termite-core CONFIG REQUIRED) gives the
+# imported target termite::core (swarm-routing/.github#436, the vcpkg port).
+# TERMITE_CORE_VERSION is the package version (default: .cz.toml's, else 0.0.0).
 cmake_minimum_required(VERSION 3.20)
-project(termite_core LANGUAGES CXX)
+# The package version: .cz.toml's (Commitizen bumps it at each release), or
+# TERMITE_CORE_VERSION when core/ is built without it (a release tarball, a port).
+set(TERMITE_CORE_VERSION "" CACHE STRING "termite-core's package version; empty: .cz.toml's")
+if(TERMITE_CORE_VERSION)
+  set(_termite_core_version "${TERMITE_CORE_VERSION}")
+elseif(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../.cz.toml")
+  file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../.cz.toml" _termite_core_version REGEX "^version = " LIMIT_COUNT 1)
+  string(REGEX REPLACE "^version = \"([0-9.]+)\".*" "\\1" _termite_core_version "${_termite_core_version}")
+else()
+  set(_termite_core_version 0.0.0)
+endif()
+project(termite_core VERSION ${_termite_core_version} LANGUAGES CXX)
 
 # The C++ standard of the ns-3 release the org supports: ns-3's own
 # CMAKE_CXX_STANDARD_MINIMUM (C++23 from ns-3.46), the standard swarm-core's
@@ -27,6 +45,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SWARM_CORE_DIR "" CACHE PATH "swarm-core's core/ directory; empty: fetch the release swarm-core.lock names")
 option(TERMITE_CORE_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(_termite_core_top ON)
+else()
+  set(_termite_core_top OFF)
+endif()
+option(TERMITE_CORE_TESTS "Build the tests and register them with ctest" ${_termite_core_top})
+option(TERMITE_CORE_SWARM_CORE_FROM_PACKAGE "Take swarm-core from find_package(swarm-core CONFIG), not the lock" OFF)
+option(TERMITE_CORE_INSTALL "Add the install rules and the CMake package termite-core" OFF)
+if(TERMITE_CORE_INSTALL AND NOT TERMITE_CORE_SWARM_CORE_FROM_PACKAGE)
+  message(FATAL_ERROR "TERMITE_CORE_INSTALL needs TERMITE_CORE_SWARM_CORE_FROM_PACKAGE=ON: the package links an installed swarm-core")
+endif()
 
 # Sanitizer flags first: they are directory options, so swarm-core's sources,
 # added below, are instrumented too.
@@ -40,7 +69,9 @@ endif()
 # nothing else: no test target, no ctest entry, no -Werror on our sources
 # (swarm-routing/ns3-swarm-core#100; its README "Use core/ from another CMake
 # project").
-if(SWARM_CORE_DIR)
+if(TERMITE_CORE_SWARM_CORE_FROM_PACKAGE)
+  find_package(swarm-core CONFIG REQUIRED)
+elseif(SWARM_CORE_DIR)
   if(NOT EXISTS "${SWARM_CORE_DIR}/swarm-ports.h")
     message(FATAL_ERROR "SWARM_CORE_DIR=${SWARM_CORE_DIR} is not swarm-core's core/ directory")
   endif()
@@ -88,20 +119,59 @@ add_library(termite_core STATIC
   termite-packet.cc
   termite-router.cc
 )
-target_include_directories(termite_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(termite::core ALIAS termite_core)
+# The installed package's imported target is termite::core too (EXPORT_NAME and
+# the export's NAMESPACE).
+set_target_properties(termite_core PROPERTIES EXPORT_NAME core)
+include(GNUInstallDirs)
+target_include_directories(termite_core PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/termite-core>)
 target_link_libraries(termite_core PUBLIC swarm::core)
 target_compile_options(termite_core PRIVATE ${TERMITE_WARNINGS})
 
-add_executable(termite_core_tests
-  test/all-tests.cc
-  test/run-core-tests.cc
-  test/test-packet-codec.cc
-  test/test-network.cc
-  test/test-observer.cc
-  test/test-router.cc
-)
-target_link_libraries(termite_core_tests PRIVATE termite_core)
-target_compile_options(termite_core_tests PRIVATE ${TERMITE_WARNINGS})
+if(TERMITE_CORE_TESTS)
+  add_executable(termite_core_tests
+    test/all-tests.cc
+    test/run-core-tests.cc
+    test/test-packet-codec.cc
+    test/test-network.cc
+    test/test-observer.cc
+    test/test-router.cc
+  )
+  target_link_libraries(termite_core_tests PRIVATE termite_core)
+  target_compile_options(termite_core_tests PRIVATE ${TERMITE_WARNINGS})
 
-enable_testing()
-add_test(NAME termite-core COMMAND termite_core_tests)
+  enable_testing()
+  add_test(NAME termite-core COMMAND termite_core_tests)
+endif()
+
+if(TERMITE_CORE_INSTALL)
+  include(CMakePackageConfigHelpers)
+  set(_termite_core_cmake_dir ${CMAKE_INSTALL_LIBDIR}/cmake/termite-core)
+  install(TARGETS termite_core EXPORT termite-coreTargets
+          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  install(FILES
+    termite-config.h
+    termite-packet.h
+    termite-router.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/termite-core)
+  install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/termite-core)
+  install(EXPORT termite-coreTargets NAMESPACE termite:: DESTINATION ${_termite_core_cmake_dir})
+  configure_package_config_file(termite-coreConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/termite-coreConfig.cmake
+    INSTALL_DESTINATION ${_termite_core_cmake_dir})
+  # As swarm-core (its docs/api-policy.md): before 1.0 any minor may break,
+  # so a 0.y release satisfies a request for 0.y only; from 1.0, its major.
+  if(PROJECT_VERSION_MAJOR EQUAL 0)
+    set(_termite_core_compat SameMinorVersion)
+  else()
+    set(_termite_core_compat SameMajorVersion)
+  endif()
+  write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/termite-coreConfigVersion.cmake
+    COMPATIBILITY ${_termite_core_compat})
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/termite-coreConfig.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/termite-coreConfigVersion.cmake
+          DESTINATION ${_termite_core_cmake_dir})
+endif()
