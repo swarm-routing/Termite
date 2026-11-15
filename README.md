@@ -1,22 +1,14 @@
 # Termite
 
 <!-- org-sync:begin badges -->
-[![Release](https://img.shields.io/github/v/release/swarm-routing/Termite?sort=semver&cacheSeconds=1800)](https://github.com/swarm-routing/Termite/releases)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24124722.svg)](https://doi.org/10.5281/zenodo.24124722)
-[![Cite](https://img.shields.io/badge/cite-CITATION.cff-blue)](CITATION.cff)
-[![Licence: GPL-2.0-only, core/ MIT OR GPL-2.0-only](https://img.shields.io/badge/licence-GPL--2.0--only%2C%20core%2F%20MIT%20OR%20GPL--2.0--only-blue)](LICENSING.md)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow)](https://www.conventionalcommits.org)
-[![Colony Arena: Termite](https://img.shields.io/badge/Colony%20Arena-project%20page-orange)](https://swarm-routing.github.io/projects/Termite/)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/swarm-routing/Termite/badge)](https://scorecard.dev/viewer/?uri=github.com/swarm-routing/Termite)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue?logo=cplusplus)](AGENTS.md)
-[![Runs on ns-3](https://img.shields.io/badge/runs%20on-ns--3-informational)](https://www.nsnam.org)
-[![Built on: ns3-dev](https://img.shields.io/badge/built%20on-ns3--dev%20image-blue?logo=docker)](https://github.com/orgs/swarm-routing/packages/container/package/ns3-dev)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=bugs)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite)
-[![codecov](https://codecov.io/gh/swarm-routing/Termite/graph/badge.svg)](https://codecov.io/gh/swarm-routing/Termite)
-[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/swarm-routing/Termite?utm_source=oss&utm_medium=github&utm_campaign=swarm-routing%2FTermite&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
+| Group | Badges |
+| --- | --- |
+| Build | [![Built on: ns3-dev](https://img.shields.io/badge/built%20on-ns3--dev%20image-blue?logo=docker)](https://github.com/orgs/swarm-routing/packages/container/package/ns3-dev) |
+| Quality | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite) [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=bugs)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite) [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=swarm-routing_Termite&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=swarm-routing_Termite) [![codecov](https://codecov.io/gh/swarm-routing/Termite/graph/badge.svg)](https://codecov.io/gh/swarm-routing/Termite) [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/swarm-routing/Termite?utm_source=oss&utm_medium=github&utm_campaign=swarm-routing%2FTermite&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai) |
+| Release | [![Release](https://img.shields.io/github/v/release/swarm-routing/Termite?sort=semver&cacheSeconds=1800)](https://github.com/swarm-routing/Termite/releases) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24124722.svg)](https://doi.org/10.5281/zenodo.24124722) [![Cite](https://img.shields.io/badge/cite-CITATION.cff-blue)](CITATION.cff) [![Licence: GPL-2.0-only, core/ MIT OR GPL-2.0-only](https://img.shields.io/badge/licence-GPL--2.0--only%2C%20core%2F%20MIT%20OR%20GPL--2.0--only-blue)](LICENSING.md) |
+| Trust | [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/swarm-routing/Termite/badge)](https://scorecard.dev/viewer/?uri=github.com/swarm-routing/Termite) |
+| Stack | [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue?logo=cplusplus)](AGENTS.md) [![Runs on ns-3](https://img.shields.io/badge/runs%20on-ns--3-informational)](https://www.nsnam.org) |
+| Community & docs | [![Colony Arena: Termite](https://img.shields.io/badge/Colony%20Arena-project%20page-orange)](https://swarm-routing.github.io/projects/Termite/) [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow)](https://www.conventionalcommits.org) |
 <!-- org-sync:end badges -->
 
 Termite (Roth & Wicker, 2003/2005) as a standalone swarm routing protocol for MANETs: routing state rides inside data packets (stigmergy), with no control ants and randomised multipath forwarding. A simulator-agnostic `core/` plus the ns-3 contrib module `termite` on [`swarm-core`](https://github.com/swarm-routing/ns3-swarm-core).
@@ -41,7 +33,7 @@ Each release also has its own **version DOI**, listed on [its Zenodo record](htt
 Please also cite the work it builds on:
 
 - M. Roth, *Termite: A Swarm Intelligent Routing Algorithm For Mobile Wireless Ad-Hoc Networks*, Cornell University, 2005, <https://hdl.handle.net/1813/240> (no DOI: none registered). Roth's dissertation, as deposited in Cornell eCommons: the primary source this repository implements (ch. 4); docs/fidelity.md maps it to the code. Degree and school from the dissertation's title page; the eCommons record names neither.
-- D. H. Joppi, *ns3-swarm-core*, 2026, [doi:10.5281/zenodo.24138628](https://doi.org/10.5281/zenodo.24138628). The shared primitives core/ builds on (pinned by commit: SWARM_CORE_REF) and the ns-3 base the adapter derives from (SwarmRoutingBase).
+- D. H. Joppi, *ns3-swarm-core*, 2026, [doi:10.5281/zenodo.24138628](https://doi.org/10.5281/zenodo.24138628). The shared primitives core/ builds on (pinned by release: swarm-core.lock) and the ns-3 base the adapter derives from (SwarmRoutingBase).
 
 What this implementation reproduces from its sources, and every deliberate deviation, is in [docs/fidelity.md](docs/fidelity.md).
 
