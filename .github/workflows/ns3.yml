@@ -15,8 +15,8 @@ name: ns-3
 # print the same. test.py's determinism case covers it on a laid trail until
 # an example delivers; then `determinism:` names that example.
 #
-# core/ also builds alone against the swarm-core release swarm-core.lock names
-# (core.yml). This module builds on the same release (the tag in `dependencies`,
+# core/ also builds alone against the same swarm-core release, from its vcpkg
+# port (core.yml; swarm-routing/.github#489). This module builds on the same release (the tag in `dependencies`,
 # and in core-deps below); `canary-dependencies` builds on swarm-core and
 # ns3-tools main in one non-blocking leg on push, schedule and dispatch, never on
 # a PR (swarm-routing/.github#411). The `swarm-core / pin` check keeps every tag
