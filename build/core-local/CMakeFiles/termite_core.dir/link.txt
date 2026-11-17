@@ -1,2 +1,0 @@
-/usr/bin/ar qc libtermite_core.a "CMakeFiles/termite_core.dir/termite-packet.cc.o" "CMakeFiles/termite_core.dir/termite-router.cc.o"
-/usr/bin/ranlib libtermite_core.a
