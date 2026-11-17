@@ -269,12 +269,13 @@ Org-wide (1–9), then this repo's own.
   (`docs/roadmap.md`; until it lands, the org ROADMAP's release train)
   gates the issue: that label set is the version's scope,
   and the version is released when its issues are done (CONTRIBUTING
-  "Cutting a release"). Labels come from `labels.json` via the `sync-labels`
-  workflow, the shared `release:v0.1.0` to `release:v0.4.0` and
-  `release:v1.0.0` among them; a version outside that set is added to
-  `swarm-routing/.github`'s `labels.json` (and CONTRIBUTING's label table)
-  when a ladder needs it, and reaches a repository when its `sync-labels` runs
-  (monthly, or dispatched after the change merges),
+  "Cutting a release"). Labels come from `labels.json`, which `.github`'s
+  `labels` workflow applies to every repository, private ones included, as
+  soon as it changes (never deleting a label), the shared `release:v0.1.0`
+  to `release:v0.4.0` and `release:v1.0.0` among them; a version outside
+  that set is added to `swarm-routing/.github`'s `labels.json` (and
+  CONTRIBUTING's label table) when a ladder needs it, and reaches every
+  repository when that change merges,
   or, in a repository that keeps its own release labels (AntHocNet), created
   there with `gh label create release:vX.Y.Z` when its ladder adds the version.
 - Issue bodies: **Context** (evidence, numbers, links) · **Scope** ·
@@ -506,6 +507,12 @@ because the issue threads were thorough. Caveman the chat, not the record.
 - Never add a `Signed-off-by` trailer, for the maintainer or anyone else: a
   DCO sign-off is a person's own certification (CONTRIBUTING "Outside
   contributions").
+- Leave a stale branch (a closed PR's head, a validation branch, a
+  superseded bot branch) to org-bot's daily `branch-sweep`, which deletes it
+  once its PR has been closed for 2 days, or after 7 days without a commit
+  for a `claude/*` or `org-bot/*` branch that never had a PR
+  (swarm-routing/.github#595). Agent sessions cannot delete branches; never
+  ask the maintainer to delete one.
 - Releases are cut on request only: dispatch the release `bump` when the
   maintainer asks, once the version's `release:vX.Y.Z` issues are done and
   its exit criteria in the ladder (`docs/roadmap.md`, or the org ROADMAP's
