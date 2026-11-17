@@ -1,0 +1,38 @@
+Start testing: Nov 17 04:57 UTC
+----------------------------------------------------------
+1/1 Testing: termite-core
+1/1 Test: termite-core
+Command: "/tmp/claude-0/-home-user/844ef203-bb92-5474-822f-3dad885c668a/scratchpad/w578/Termite/build/core-local/termite_core_tests"
+Directory: /tmp/claude-0/-home-user/844ef203-bb92-5474-822f-3dad885c668a/scratchpad/w578/Termite/build/core-local
+"termite-core" start time: Nov 17 04:57 UTC
+Output:
+----------------------------------------------------------
+ok   header codec: roundtrip
+ok   header codec: the decoder fails closed
+ok   header codec: seeded fuzz
+ok   deposit: eq. 4.1, new rows and columns, ceiling
+ok   promiscuous: an overheard packet deposits once
+ok   duplicate list: forwarded IDs are dropped untouched
+ok   forwarding: eq. 4.3, never the arrival link
+ok   dead end: back on the arrival link
+ok   dead end: the bounce is exempt and lowers P(B, d)
+ok   unknown destination: queued with its header
+ok   TTL: decremented per hop, 0 drops in transit
+ok   decay: eq. 4.2 per period, floor, removals
+ok   link loss: the row goes at once
+ok   bounded: duplicate list, table, deposit record
+ok   end to end: a line, both ways
+ok   determinism: same seed, same trace
+ok   observer: every callback, data header is not control
+ok   observer: pheromone entries appear and disappear
+ok   observer: read-only, same run with and without
+0 failed
+<end of output>
+Test time =   0.25 sec
+----------------------------------------------------------
+Test Passed.
+"termite-core" end time: Nov 17 04:57 UTC
+"termite-core" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 17 04:57 UTC
