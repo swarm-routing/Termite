@@ -81,7 +81,7 @@ Decision Router::onReceive(const PacketHeader& header) {
         observer_->onControlReceived(static_cast<std::uint8_t>(header.type), kPacketWireSize);
     Decision d = receive(header);
     reportState();
-    return header.type == PacketType::Data ? observed(header, std::move(d)) : d;
+    return header.type == PacketType::Data ? observed(header, d) : d;
 }
 
 Decision Router::observed(const PacketHeader& header, Decision d) {
