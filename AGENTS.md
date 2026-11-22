@@ -26,7 +26,7 @@ ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-co
   helper/termite-bench-arms.cc      the `termite` arm of ns3-tools' routing-compare (built only beside routing-bench)
   test/termite-test-suite.cc        `test.py -s termite`: the core tests, header roundtrip and fuzz, the adapter on static topologies, determinism
 docs/       fidelity sheet (dissertation section -> implementation), parameters with sources, the anchor-miss analysis; observer.md (what the core reports, how data headers are counted)
-.github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-format (check `core`)
+.github/workflows/core.yml   core/ alone: strict warnings, tests, ASan + UBSan, clang-tidy (org .clang-tidy, findings as errors), clang-format (check `core`)
 .github/workflows/ns3.yml    ns3/ in ns3-dev on the swarm-core release in swarm-core.lock, with routing-bench at a release; canary on main
 .github/workflows/benchmark-cell.yml   one benchmark cell at a pinned source_sha (reusable-benchmark-cell.yml, build mode); dispatched by ns3-campaign
 tools/bench/campaigns/   campaign plans: smoke.yaml (the change-test smoke against the base)
