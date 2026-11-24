@@ -33,13 +33,13 @@ struct Config {
     Time decayPeriod = 1.0;
     /// Fidelity "ch. 4: pheromone threshold, K": [R05] §4.2.5, p. 74 (nominal 0).
     double threshold = 0.0;
-    /// Fidelity "ch. 4: pheromone sensitivity, F": unknown in ch. 4 (§4.2.5,
-    /// p. 74). 10 is ch. 7's value ([R05] p. 154), past which ch. 5 finds no
-    /// gain ([R05] §5.4.5, p. 114); a placeholder until it is decided (#6).
-    double sensitivity = 10.0;
+    /// Fidelity "ch. 4: pheromone sensitivity, F": [RW03] eq. 3, nominal 2
+    /// (maintainer decision 2026-11-24, #6). Ch. 4 gives no value (§4.2.5,
+    /// p. 74); ch. 7's 10 ([R05] p. 154) is AntHocNet's arm's.
+    double sensitivity = 2.0;
     /// Fidelity "ch. 4: pheromone deposit per packet, γc": the constant of
-    /// eq. 4.1 (maintainer decision 2026-11-10, #4); its value is unknown.
-    /// 1 is ch. 5's classic filter ([R05] p. 108); a placeholder (#6).
+    /// eq. 4.1 (maintainer decision 2026-11-10, #4), nominal 1 in [RW03]
+    /// eq. 1 (maintainer decision 2026-11-24, #6), as ch. 5's classic filter.
     double deposit = 1.0;
     /// Fidelity "ch. 4: no next hop although the destination is known": a
     /// data packet whose only neighbour is its arrival link is dropped
