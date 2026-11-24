@@ -12,7 +12,7 @@ section a task needs, not the whole file.
 - `ns3/` is the contrib module `termite`: the adapter carries the core's decisions out on swarm-core's `SwarmRoutingBase`, with the header on every data packet, and registers the `termite` arm of ns3-tools' `routing-compare`.
 - Missing (#6): route requests and replies, hello, seed and next-hop failure. Until a node can learn a destination it has not heard from, a fresh network delivers nothing, so there is no example and no determinism program yet, and the campaigns of #31 and #59 have nothing to measure.
 
-Where it comes from: before this repository, Termite existed only as AntHocNet's `termite` comparator arm (GPL-2.0-only, `ns3/baselines/adaptive/`). In AntHocNet v2.5.0 it built, passed the delivery smoke (19.6 %) and **missed its anchor** (the trend points the right way; the CIs span zero), so it shipped as an infeasibility verdict. Its fidelity sheet was written from Roth's 2005 dissertation (chapter 4, Table 4.1; anchor from §4.4); the GLOBECOM 2003 paper and the SIDM 2005 copy were never read (swarm-routing/AntHocNet#587), and still are not: #22 reviews [`docs/fidelity.md`](docs/fidelity.md) against them once they are in hand.
+Where it comes from: before this repository, Termite existed only as AntHocNet's `termite` comparator arm (GPL-2.0-only, `ns3/baselines/adaptive/`). In AntHocNet v2.5.0 it built, passed the delivery smoke (19.6 %) and **missed its anchor** (the trend points the right way; the CIs span zero), so it shipped as an infeasibility verdict. Its fidelity sheet was written from Roth's 2005 dissertation (chapter 4, Table 4.1; anchor from §4.4); the GLOBECOM 2003 paper and the SIDM 2005 copy were never read (swarm-routing/AntHocNet#587). This repository has since read the GLOBECOM 2003 paper's algorithm section, which gives F, γc and the dead-end rule (#22, 2026-11-24). The SIDM 2005 copy is still unread: #22 reviews [`docs/fidelity.md`](docs/fidelity.md) against it once it is in hand.
 
 ## Glossary
 
@@ -21,7 +21,7 @@ Terms as [`docs/fidelity.md`](docs/fidelity.md) uses them, for the ch. 4 version
 - **Pheromone table**: a node's routing state, entries P(i, d): the pheromone on neighbour i for destination d ([R05] §4.2.1). `core/` keys it (destination, neighbour) on swarm-core's table.
 - **Row**: one neighbour's entries, across every known destination. A row whose entries have all decayed to the floor removes the neighbour.
 - **Column**: one destination's entries, across every neighbour. A column whose entries have all decayed to the floor is removed, and the destination is unknown again; a neighbour's own column stays until its row has gone too.
-- **γc**: the constant a packet deposits (eq. 4.1): a packet from source s arriving from previous hop r adds γc to P(r, s) at every node that receives or overhears it, once per node: a later copy of the same packet (same source and message ID, while the capped deposited-ID record still holds it) deposits nothing. Ch. 4 gives no value; `core/` uses 1 as a placeholder (#6).
+- **γc**: the constant a packet deposits (eq. 4.1): a packet from source s arriving from previous hop r adds γc to P(r, s) at every node that receives or overhears it, once per node: a later copy of the same packet (same source and message ID, while the capped deposited-ID record still holds it) deposits nothing. Ch. 4 gives no value; `core/` uses 1, the 2003 paper's nominal value (#6).
 - **F**: the pheromone sensitivity, the exponent of eq. 4.3's forwarding draw: F > 1 sharpens the preference for the strongest link, F = 1 only normalises. Ch. 4 gives no value; `core/` uses the 2003 paper's nominal 2 (#6).
 - **K**: the pheromone threshold added to every entry in eq. 4.3 before the exponent, so weaker links keep some probability. Nominal value 0.
 - **Floor, ceiling**: the bounds of an entry (0.1 and 10000, Table 4.1); no entry decays below the floor or exceeds the ceiling.
@@ -33,4 +33,3 @@ Terms as [`docs/fidelity.md`](docs/fidelity.md) uses them, for the ch. 4 version
 ## Open questions
 
 - Why did AntHocNet's arm miss its anchor: the arm (fidelity), the scenario (AntHocNet's anchor cell vs §4.4's setup) or power (seeds)? Pre-registered before code (AGENTS.md rule 12) on #5, accepted 2026-11-10; #59 runs the pre-registered cells and applies the decision rule. It waits for an arm that delivers (#6) and for #95.
-- The values of γc and F, which ch. 4 does not give (`core/` holds placeholders; #6).

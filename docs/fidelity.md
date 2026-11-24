@@ -52,10 +52,17 @@ Read for this sheet: ch. 4 whole (§4.1–§4.5, pp. 70–91), §5.1–§5.5
 (pp. 92–117; the results of §5.4.3–§5.4.4 skimmed for the method ranking),
 §6.3.2 (p. 129), ch. 7 §7.1–§7.3.4 and §7.4.1 (pp. 144–166), the
 bibliography entries [45], [54]–[56], [80], [81], and slide 15 of Roth's
-dissertation-defence slides. The GLOBECOM 2003 paper [RW03] and the SIDM 2005
-chapter [RW06] were not read (their review: #22). Note that the dissertation cites
-its own first Termite report as Med-Hoc-Net 2003 ([R05] p. 194, ref. [56]),
-not GLOBECOM 2003; whether the two are the same text is not known.
+dissertation-defence slides. Of the GLOBECOM 2003 paper [RW03], §2 (the
+algorithm; the paper numbers it II) and Table I were read on 2026-11-24
+against the dissertation's §4.2 (#22). It is the same text as §4.2, with two
+sentences that §4.2 lacks: "The nominal value of F is two" (§2, after eq. 3)
+and the drop of a packet whose only neighbour is the one it came from (§2,
+before eq. 3). The F and dead-end rows rest on those sentences, and the γc
+row on eq. 1's "nominal value of γ is one". The SIDM 2005 chapter [RW06] was
+not read (#22). The dissertation cites its own first Termite report as
+Med-Hoc-Net 2003 ([R05] p. 194, ref. [56]). [RW03] cites it too, as ref. [7],
+under another title ("Termite: Emergent Ad-Hoc Networking"), so that report
+is a separate paper; whether its text overlaps [RW03]'s is not known.
 
 ## Sources
 
@@ -71,10 +78,11 @@ not GLOBECOM 2003; whether the two are the same text is not known.
 
 The entries live in [`references.bib`](references.bib); the table is
 generated from it (`fidelity.py bib sources`). [R05] is the dissertation
-(January 2005, 209 pp.), the source of every row. Roth's dissertation-defence
+(January 2005, 209 pp.), the source of every row except the three [RW03]
+settles (γc, F, the dead end). Roth's dissertation-defence
 slides (Cornell University, 44 slides) are a secondary source, superseded by
 [R05]; slide 15 is cited below by name. They have no public record, so they
-have no entry. [RW03] is read in part (#22): the γc and F rows rest on it.
+have no entry. [RW03] is read in part (#22): the γc, F and dead-end rows rest on it.
 [RW06] was not read: no row rests on it. [S97]
 (ABC) is background only, for ch. 5's ABC+X; [R05] dates it 1996 (p. 193,
 ref. [45]), the publisher's record 1997. Not read.
