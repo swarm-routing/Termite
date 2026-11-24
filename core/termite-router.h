@@ -33,6 +33,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <vector>
 
 namespace termite::core {
 
@@ -68,6 +69,27 @@ private:
     std::deque<Key> order_;  // insertion order, for FIFO eviction
 };
 
+/// A RREP's message ID is the answered RREQ's with this bit set (fidelity
+/// Parameters row "RREP message ID", repo choice, #200): its source is the
+/// requested destination, whose own IDs stay below it.
+inline constexpr std::uint32_t kReplyIdBit = 0x80000000U;
+
+/// What route discovery sends besides the decision for the packet in hand
+/// (#200). The adapter implements it; every call comes from inside
+/// originate(), onReceive() or a timer, in a deterministic order.
+class IRouterOutput {
+public:
+    virtual ~IRouterOutput() = default;
+    /// A control packet this node originates (a RREQ): Unicast, header set.
+    virtual void sendControl(const Decision& decision) = 0;
+    /// `destination` became known: one decision per held packet, in the order
+    /// they were held (Unicast, or Drop when one cannot be sent).
+    virtual void release(NodeAddress destination, const std::vector<Decision>& decisions) = 0;
+    /// The rreq timeout passed with `destination` still unknown: its `count`
+    /// held packets are dropped.
+    virtual void discard(NodeAddress destination, std::size_t count) = 0;
+};
+
 class Router {
 public:
     /// `rng` and `timers` must outlive the router.
@@ -79,18 +101,26 @@ public:
     /// no decision, draw or table change depends on it (org rule 5).
     void setObserver(swarm::core::IRouterObserver* observer) { observer_ = observer; }
 
+    /// Receives the route-discovery sends (#200). Null, the default: RREQs
+    /// are not sent and held packets are released or dropped unseen. It must
+    /// outlive the router.
+    void setOutput(IRouterOutput* output) { output_ = output; }
+
     /// Starts the periodic decay (eq. 4.2): one tick every decay period.
     void start();
 
     /// The local transport sends a data packet to `destination`. Unicast with
-    /// the header to send; Queue (header set) when the destination is unknown,
-    /// for the route request of the next slice; Deliver for this node itself.
+    /// the header to send; Queue (header set) when the destination is unknown:
+    /// the packet is held and a route request runs (#200); Drop when the held
+    /// buffer is full; Deliver for this node itself.
     Decision originate(NodeAddress destination);
 
     /// A frame was received: addressed to this node (header.nextHop == self)
     /// or overheard (promiscuous reception, [R05] §4.2.2, p. 72). Overheard
-    /// frames deposit and return None; addressed data is delivered, forwarded,
-    /// queued or dropped.
+    /// frames deposit and return None. Addressed data is delivered, forwarded,
+    /// held (Queue) or dropped. An addressed RREQ returns the RREQ sent on or
+    /// the RREP that answers it; an addressed RREP returns the RREP sent on,
+    /// or None at the requester. Hello and seed return None.
     Decision onReceive(const PacketHeader& header);
 
     /// A neighbour was lost by communications failure: its row goes at once
@@ -108,11 +138,40 @@ public:
     const ForwardedList& forwarded() const { return forwarded_; }
     /// True when the table holds a column for `destination`.
     bool knows(NodeAddress destination) const;
+    /// True while a route request for `destination` is pending.
+    bool requesting(NodeAddress destination) const { return pending_.count(destination) != 0; }
+    /// Data packets held for unknown destinations, all destinations.
+    std::size_t held() const { return heldCount_; }
 
 private:
     using Key = ForwardedList::Key;
 
+    /// A pending route request: the data held for its destination (each
+    /// header with the link it arrived on) and its timeout.
+    struct Request {
+        std::vector<std::pair<PacketHeader, NodeAddress>> held;
+        std::uint64_t generation = 0;
+    };
+
+    /// Eq. 4.3 towards header.destination, never back on `arrival`. Data for
+    /// an unknown destination is held; control for one is dropped.
     Decision forward(PacketHeader header, NodeAddress arrival);
+    /// Holds data for an unknown destination and starts its route request.
+    Decision hold(const PacketHeader& header, NodeAddress arrival);
+    /// The RREQs of a new request for `destination` (Table 4.1: two walks).
+    void request(NodeAddress destination);
+    /// A RREQ's random walk: uniform over the neighbours but `arrival`.
+    Decision walk(PacketHeader header, NodeAddress arrival);
+    /// Answers or walks on an addressed RREQ.
+    Decision onRouteRequest(const PacketHeader& header);
+    /// The rule decided on 2026-11-10 (#4): the destination itself, or a cell
+    /// of its column above the floor.
+    bool answers(NodeAddress destination) const;
+    /// Releases the held data of every pending destination now known.
+    void releaseKnown();
+    void onRequestTimeout(NodeAddress destination, std::uint64_t generation);
+    /// onControlSent for a RREQ or RREP this node sends (docs/observer.md).
+    void reportControlSent(PacketType type);
     Decision receive(const PacketHeader& header);
     /// Reports a data decision (docs/observer.md) and returns it.
     Decision observed(const PacketHeader& header, Decision d);
@@ -140,7 +199,11 @@ private:
     std::uint32_t nextMessageId_ = 0;
     double retainPerPeriod_;
     swarm::core::IRouterObserver* observer_ = nullptr;
+    IRouterOutput* output_ = nullptr;
     std::size_t reportedEntries_ = 0;
+    std::map<NodeAddress, Request> pending_;  // ordered: releases run in address order
+    std::size_t heldCount_ = 0;
+    std::uint64_t nextGeneration_ = 0;
 };
 
 }  // namespace termite::core

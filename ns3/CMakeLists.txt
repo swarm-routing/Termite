@@ -60,6 +60,7 @@ build_lib(
   TEST_SOURCES
     ${termite_core_dir}/test/all-tests.cc
     ${termite_core_dir}/test/test-packet-codec.cc
+    ${termite_core_dir}/test/test-discovery.cc
     ${termite_core_dir}/test/test-network.cc
     ${termite_core_dir}/test/test-observer.cc
     ${termite_core_dir}/test/test-router.cc

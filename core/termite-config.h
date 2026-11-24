@@ -49,6 +49,18 @@ struct Config {
     bool deadEndBounce = false;
     /// Fidelity "ch. 4: data TTL": [R05] Table 4.1, p. 84 (hops).
     std::uint8_t dataTtl = 32;
+    /// Fidelity "ch. 4: rreq timeout": [R05] Table 4.1, p. 84 (seconds). Data
+    /// held for a destination still unknown by then is dropped.
+    Time rreqTimeout = 2.0;
+    /// Fidelity "ch. 4: RREQs per route request": [R05] Table 4.1, p. 84.
+    std::size_t rreqsPerRequest = 2;
+    /// Fidelity "ch. 4: RREQ TTL": [R05] Table 4.1, p. 84 (hops).
+    std::uint8_t rreqTtl = 32;
+    /// Fidelity "ch. 4: RREP TTL": [R05] Table 4.1, p. 84 (hops).
+    std::uint8_t rrepTtl = 32;
+    /// Fidelity "ch. 4: pending-packet buffer capacity": repo choice (#200),
+    /// the arm's shared queue size; org rule 7. Held data, all destinations.
+    std::size_t heldCapacity = 64;
     /// Fidelity "ch. 4: duplicate (message-ID) list size": repo choice
     /// (maintainer decision 2026-11-10, #4). It holds forwarded IDs only.
     std::size_t duplicateListSize = 64;

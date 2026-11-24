@@ -143,6 +143,8 @@ public:
         if (it == routers_.end()) {
             it = routers_.emplace(a, std::make_unique<Router>(a, config_, rng_, events_)).first;
             it->second->setObserver(observer_);
+            outputs_.push_back(std::make_unique<Output>(*this, a));
+            it->second->setOutput(outputs_.back().get());
         }
         return *it->second;
     }
@@ -163,9 +165,13 @@ public:
                       events_.now(), from, static_cast<int>(d.action), h ? h->source : -1,
                       h ? h->destination : -1, h ? h->messageId : 0u, h ? h->ttl : 0u, d.nextHop);
         trace_.emplace_back(line);
-        if (d.action == RouteAction::Deliver) ++delivered_;
-        if (d.action == RouteAction::Drop) ++dropped_;
-        if (d.action == RouteAction::Queue) ++queued_;
+        // The counters are data's: each data packet ends once, delivered,
+        // dropped or still held (queued). A control drop is not counted.
+        if (!h || h->type == PacketType::Data) {
+            if (d.action == RouteAction::Deliver) ++delivered_;
+            if (d.action == RouteAction::Drop) ++dropped_;
+            if (d.action == RouteAction::Queue) ++queued_;
+        }
         if (d.action != RouteAction::Unicast || !h) return;
         std::vector<std::uint8_t> bytes;
         encodePacket(*h, bytes);
@@ -184,12 +190,40 @@ public:
     int dropped() const { return dropped_; }
     int queued() const { return queued_; }
 
+    int controlSent() const { return controlSent_; }
+
 private:
+    /// A node's route-discovery sends (#200): RREQs onto the radio; held
+    /// packets released (no longer queued, carried on) or discarded (dropped).
+    class Output : public IRouterOutput {
+    public:
+        Output(Network& net, NodeAddress self) : net_(net), self_(self) {}
+        void sendControl(const Decision& d) override {
+            ++net_.controlSent_;
+            net_.carry(self_, d);
+        }
+        void release(NodeAddress /*destination*/, const std::vector<Decision>& ds) override {
+            for (const Decision& d : ds) {
+                --net_.queued_;
+                net_.carry(self_, d);
+            }
+        }
+        void discard(NodeAddress /*destination*/, std::size_t count) override {
+            net_.queued_ -= static_cast<int>(count);
+            net_.dropped_ += static_cast<int>(count);
+        }
+
+    private:
+        Network& net_;
+        NodeAddress self_;
+    };
+
     EventQueue events_;
     SeededRng rng_;
     Config config_;
     swarm::core::Time linkDelay_;
     swarm::core::IRouterObserver* observer_ = nullptr;
+    std::vector<std::unique_ptr<Output>> outputs_;  // before routers_: outlives them
     std::map<NodeAddress, std::unique_ptr<Router>> routers_;
     std::map<NodeAddress, std::set<NodeAddress>> links_;
     std::vector<std::string> trace_;
@@ -197,6 +231,7 @@ private:
     int delivered_ = 0;
     int dropped_ = 0;
     int queued_ = 0;
+    int controlSent_ = 0;
 };
 
 }  // namespace termite::core::test

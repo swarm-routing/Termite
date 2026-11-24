@@ -81,7 +81,10 @@ Decision Router::onReceive(const PacketHeader& header) {
         observer_->onControlReceived(static_cast<std::uint8_t>(header.type), kPacketWireSize);
     Decision d = receive(header);
     reportState();
-    return header.type == PacketType::Data ? observed(header, d) : d;
+    if (header.type == PacketType::Data) return observed(header, d);
+    // A RREQ walked on, a RREP that answers one, or a RREP routed on.
+    if (d.action == RouteAction::Unicast && d.message) reportControlSent(d.message->type);
+    return d;
 }
 
 Decision Router::observed(const PacketHeader& header, Decision d) {
@@ -121,18 +124,152 @@ Decision Router::receive(const PacketHeader& header) {
     // Fidelity "ch. 4: pheromone on every packet" and "promiscuous reception":
     // every packet type deposits, at every node that hears it, once.
     depositOnce(header);
+    // Fidelity "ch. 4: unknown destination": a pending destination this
+    // packet made known releases its held data, received or overheard.
+    releaseKnown();
     if (!addressed) return Decision::none();
-    // Hello, seed, RREQ and RREP handling is the next slice.
-    if (header.type != PacketType::Data) return Decision::none();
-    if (header.destination == self_) return Decision::deliver();
-    return forward(header, from);
+    switch (header.type) {
+    case PacketType::Data:
+        if (header.destination == self_) return Decision::deliver();
+        return forward(header, from);
+    case PacketType::RouteRequest:
+        return onRouteRequest(header);
+    case PacketType::RouteReply:
+        // Fidelity "ch. 4: route reply": consumed at the requester (its
+        // deposit made the destination known), routed on elsewhere.
+        if (header.destination == self_) return Decision::none();
+        return forward(header, from);
+    default:
+        // Hello and seed are the next slice (#201).
+        return Decision::none();
+    }
+}
+
+Decision Router::onRouteRequest(const PacketHeader& header) {
+    // Fidelity "ch. 4: which node answers a RREQ" (decided 2026-11-10, #4):
+    // the node it is addressed to, if it is the destination or holds a cell
+    // of the destination's column above the floor.
+    if (header.destination == self_ || answers(header.destination)) {
+        // Fidelity "ch. 4: route reply": it appears to come from the requested
+        // destination and goes to the requester; its ID is the RREQ's with
+        // the top bit set (Parameters row "RREP message ID", #200).
+        PacketHeader reply;
+        reply.type = PacketType::RouteReply;
+        reply.source = header.destination;
+        reply.destination = header.source;
+        reply.previousHop = self_;
+        reply.messageId = header.messageId | kReplyIdBit;
+        reply.ttl = config_.rrepTtl;
+        return forward(reply, kInvalidAddress);
+    }
+    return walk(header, header.previousHop);
+}
+
+bool Router::answers(NodeAddress destination) const {
+    const auto column = table_.entries(destination);
+    return std::any_of(column.begin(), column.end(),
+                       [this](const auto& e) { return e.value > config_.pheromoneFloor; });
+}
+
+Decision Router::walk(PacketHeader header, NodeAddress arrival) {
+    // Fidelity "ch. 4: route request": a uniform random walk, never back on
+    // the arrival link, pheromone disregarded; one that cannot be forwarded
+    // is dropped. One draw per hop, none for a single candidate.
+    if (header.ttl == 0) return Decision::drop();
+    std::vector<NodeAddress> candidates;
+    for (NodeAddress n : neighbors_)
+        if (n != arrival) candidates.push_back(n);
+    if (candidates.empty()) return Decision::drop();
+    const NodeAddress next = candidates.size() == 1
+                                 ? candidates.front()
+                                 : candidates[static_cast<std::size_t>(
+                                       rng_.uniformInt(static_cast<int>(candidates.size())))];
+    forwarded_.record({header.source, header.messageId}, next);
+    header.previousHop = self_;
+    header.nextHop = next;
+    header.ttl = static_cast<std::uint8_t>(header.ttl - 1);
+    return Decision::unicast(next, header);
+}
+
+Decision Router::hold(const PacketHeader& header, NodeAddress arrival) {
+    // Fidelity "ch. 4: pending-packet buffer capacity" (repo choice, #200):
+    // a packet that finds the buffer full is dropped.
+    if (heldCount_ >= config_.heldCapacity) return Decision::drop();
+    const bool fresh = pending_.count(header.destination) == 0;
+    pending_[header.destination].held.emplace_back(header, arrival);
+    ++heldCount_;
+    // Fidelity "ch. 4: concurrent route requests per destination" (repo
+    // choice, #200): one at a time; later data joins the held set.
+    if (fresh) request(header.destination);
+    return {RouteAction::Queue, header.destination, header};
+}
+
+void Router::request(NodeAddress destination) {
+    Request& r = pending_[destination];
+    r.generation = ++nextGeneration_;
+    const std::uint64_t generation = r.generation;
+    timers_.schedule(config_.rreqTimeout, [this, destination, generation] {
+        onRequestTimeout(destination, generation);
+    });
+    // Fidelity "ch. 4: RREQs per route request" (Table 4.1): independent walks.
+    // With no neighbour none can leave (a RREQ that cannot be forwarded is
+    // dropped), so none takes an ID; the request still times out. Without an
+    // output port nothing could carry one either: no walk, no draw.
+    if (neighbors_.empty() || !output_) return;
+    for (std::size_t i = 0; i < config_.rreqsPerRequest; ++i) {
+        PacketHeader rreq;
+        rreq.type = PacketType::RouteRequest;
+        rreq.source = self_;
+        rreq.destination = destination;
+        rreq.previousHop = self_;
+        rreq.messageId = nextMessageId_++;
+        rreq.ttl = config_.rreqTtl;
+        const Decision d = walk(rreq, kInvalidAddress);
+        if (d.action != RouteAction::Unicast) continue;
+        reportControlSent(PacketType::RouteRequest);
+        if (output_) output_->sendControl(d);
+    }
+}
+
+void Router::releaseKnown() {
+    // Collected first: forwarding a released packet changes no column, but
+    // the map must not change under the loop.
+    std::vector<NodeAddress> known;
+    for (const auto& [destination, request] : pending_)
+        if (knows(destination)) known.push_back(destination);
+    for (NodeAddress destination : known) {
+        auto node = pending_.extract(destination);
+        heldCount_ -= node.mapped().held.size();
+        std::vector<Decision> decisions;
+        for (const auto& [header, arrival] : node.mapped().held)
+            decisions.push_back(observed(header, forward(header, arrival)));
+        if (output_) output_->release(destination, decisions);
+    }
+}
+
+void Router::onRequestTimeout(NodeAddress destination, std::uint64_t generation) {
+    auto it = pending_.find(destination);
+    if (it == pending_.end() || it->second.generation != generation) return;
+    // Fidelity "ch. 4: unknown destination": no reply within the rreq
+    // timeout, and the held data is dropped; no retry ("RREQ retries", 0).
+    const std::size_t count = it->second.held.size();
+    heldCount_ -= count;
+    pending_.erase(it);
+    if (output_) output_->discard(destination, count);
+}
+
+void Router::reportControlSent(PacketType type) {
+    if (observer_)
+        observer_->onControlSent(static_cast<std::uint8_t>(type), false, kPacketWireSize);
 }
 
 Decision Router::forward(PacketHeader header, NodeAddress arrival) {
     // Fidelity "ch. 4: TTL": the packet may travel no further.
     if (header.ttl == 0) return Decision::drop();
-    // Fidelity "ch. 4: unknown destination": buffered for a route request.
-    if (!knows(header.destination)) return {RouteAction::Queue, header.destination, header};
+    // Fidelity "ch. 4: unknown destination": data is held for a route
+    // request; control is not held (route reply row, repo choice, #200).
+    if (!knows(header.destination))
+        return header.type == PacketType::Data ? hold(header, arrival) : Decision::drop();
 
     // Fidelity "ch. 4: forwarding", eq. 4.3: P(n) ∝ (P(n, d) + K)^F over the
     // neighbours except the arrival link r. Weights are taken relative to the
@@ -154,7 +291,7 @@ Decision Router::forward(PacketHeader header, NodeAddress arrival) {
         // the only neighbour is the arrival link. Dropped ([RW03] §2;
         // maintainer decision 2026-11-24, #6), or, with the default-off
         // bounce, sent back on it (#4, 2026-11-10); the TTL bounds the loop.
-        if (!config_.deadEndBounce) return Decision::drop();
+        if (!config_.deadEndBounce || header.type != PacketType::Data) return Decision::drop();
         next = arrival;
     } else {
         next = swarm::core::rouletteSelect(candidates, rng_);

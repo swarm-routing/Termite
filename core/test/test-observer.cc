@@ -67,13 +67,16 @@ void TestObserverCallbacks(Checker& c) {
             "originate reports its decisions, by destination");
 
     // A data packet deposits (cells appear, the footprint is reported) and
-    // is forwarded; its header is data overhead, not control.
+    // is forwarded; its header is data overhead, not control. The first one
+    // makes 9 known, so the packet held for 9 above is released (#200).
     h.router.onReceive(dataFrame(9, 0, 1, 0, 1));  // delivered here
     h.router.onReceive(dataFrame(2, 9, 2, 0, 2));  // forwarded toward 9
     c.check(rec.received.empty() && rec.sent.empty(), "data headers are not control");
-    c.check(rec.decisions.size() == 4 && rec.decisions[2].second == RouteAction::Deliver &&
-                rec.decisions[3] == std::pair{NodeAddress{9}, RouteAction::Unicast},
-            "deliver and forward are reported");
+    c.check(rec.decisions.size() == 5 &&
+                rec.decisions[2] == std::pair{NodeAddress{9}, RouteAction::Unicast} &&
+                rec.decisions[3].second == RouteAction::Deliver &&
+                rec.decisions[4] == std::pair{NodeAddress{9}, RouteAction::Unicast},
+            "release, deliver and forward are reported");
     c.check(!rec.states.empty() &&
                 rec.states.back().first == static_cast<std::uint32_t>(h.router.table().size()) &&
                 rec.states.back().second == rec.states.back().first * kStateBytesPerEntry,
@@ -97,7 +100,10 @@ void TestObserverCallbacks(Checker& c) {
     c.check(rec.received.size() == 2 && rec.received[0].kind == 2 && rec.received[1].kind == 4 &&
                 rec.received[0].bytes == kPacketWireSize,
             "control receptions carry the kind and the encoded size");
-    c.check(rec.sent.empty(), "this slice sends no control packet");
+    // The RREQ from 3 for 3 is addressed here, and this node holds a column
+    // for 3 above the floor: it answers with a RREP, a control send (#200).
+    c.check(rec.sent.size() == 1 && rec.sent[0].kind == 5 && rec.sent[0].bytes == kPacketWireSize,
+            "the RREP answering it is reported sent");
     c.check(rec.decisions.size() == before + 1, "a control packet is not a data decision");
 }
 

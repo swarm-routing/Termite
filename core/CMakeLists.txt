@@ -135,6 +135,7 @@ if(TERMITE_CORE_TESTS)
     test/all-tests.cc
     test/run-core-tests.cc
     test/test-packet-codec.cc
+    test/test-discovery.cc
     test/test-network.cc
     test/test-observer.cc
     test/test-router.cc
