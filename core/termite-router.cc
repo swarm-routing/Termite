@@ -238,10 +238,12 @@ void Router::releaseKnown() {
     for (const auto& [destination, request] : pending_)
         if (knows(destination)) known.push_back(destination);
     for (NodeAddress destination : known) {
-        auto node = pending_.extract(destination);
-        heldCount_ -= node.mapped().held.size();
+        auto it = pending_.find(destination);
+        const auto held = std::move(it->second.held);
+        pending_.erase(it);
+        heldCount_ -= held.size();
         std::vector<Decision> decisions;
-        for (const auto& [header, arrival] : node.mapped().held)
+        for (const auto& [header, arrival] : held)
             decisions.push_back(observed(header, forward(header, arrival)));
         if (output_) output_->release(destination, decisions);
     }
