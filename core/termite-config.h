@@ -41,6 +41,12 @@ struct Config {
     /// eq. 4.1 (maintainer decision 2026-11-10, #4); its value is unknown.
     /// 1 is ch. 5's classic filter ([R05] p. 108); a placeholder (#6).
     double deposit = 1.0;
+    /// Fidelity "ch. 4: no next hop although the destination is known": a
+    /// data packet whose only neighbour is its arrival link is dropped
+    /// ([RW03] §2; maintainer decision 2026-11-24, #6). True sends it back
+    /// on that link instead, the bounce of the 2026-11-10 decision (#4): a
+    /// default-off mechanism beyond the paper.
+    bool deadEndBounce = false;
     /// Fidelity "ch. 4: data TTL": [R05] Table 4.1, p. 84 (hops).
     std::uint8_t dataTtl = 32;
     /// Fidelity "ch. 4: duplicate (message-ID) list size": repo choice

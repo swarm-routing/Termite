@@ -20,6 +20,7 @@ void TestDepositOnReception(Checker& c);
 void TestPromiscuousDepositOnce(Checker& c);
 void TestDuplicateListDrops(Checker& c);
 void TestForwardingDistribution(Checker& c);
+void TestDeadEndDrops(Checker& c);
 void TestDeadEndBounce(Checker& c);
 void TestBounceIsExempt(Checker& c);
 void TestUnknownDestinationQueues(Checker& c);
