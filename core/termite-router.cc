@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR GPL-2.0-only
 //
 // Termite's data path: deposit (eq. 4.1), promiscuous reception, the
-// forwarded-ID duplicate list, forwarding (eq. 4.3), the dead-end bounce and
+// forwarded-ID duplicate list, forwarding (eq. 4.3), the dead end and
 // periodic decay (eq. 4.2). Each rule names its docs/fidelity.md row.
 #include "termite-router.h"
 
@@ -102,10 +102,11 @@ Decision Router::receive(const PacketHeader& header) {
 
     // Fidelity "ch. 4: duplicate list": a copy whose ID this node has
     // forwarded is dropped without touching the table, overheard or not
-    // (§4.3.9's misleading gradient). Exempt: data coming back from the
-    // neighbour it was forwarded to, the dead-end bounce (#4, 2026-11-10).
+    // (§4.3.9's misleading gradient). Exempt, with the bounce on: data coming
+    // back from the neighbour it was forwarded to (#4, 2026-11-10).
     if (forwarded_.contains(key)) {
-        if (addressed && header.type == PacketType::Data && forwarded_.nextHopOf(key) == from) {
+        if (config_.deadEndBounce && addressed && header.type == PacketType::Data &&
+            forwarded_.nextHopOf(key) == from) {
             // Fidelity "ch. 4: no next hop although the destination is known":
             // the bounce lowers P(B, d) for the dead-end neighbour B. Ch. 4
             // gives no amount (eq. 4.1 only adds); repo choice (#6): the cell
@@ -150,8 +151,10 @@ Decision Router::forward(PacketHeader header, NodeAddress arrival) {
     NodeAddress next = kInvalidAddress;
     if (candidates.empty()) {
         // Fidelity "ch. 4: no next hop although the destination is known":
-        // the only neighbour is the arrival link, so the packet goes back on
-        // it (maintainer decision 2026-11-10, #4); the TTL bounds the loop.
+        // the only neighbour is the arrival link. Dropped ([RW03] §2;
+        // maintainer decision 2026-11-24, #6), or, with the default-off
+        // bounce, sent back on it (#4, 2026-11-10); the TTL bounds the loop.
+        if (!config_.deadEndBounce) return Decision::drop();
         next = arrival;
     } else {
         next = swarm::core::rouletteSelect(candidates, rng_);

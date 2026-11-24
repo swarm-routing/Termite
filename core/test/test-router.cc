@@ -131,8 +131,41 @@ void TestForwardingDistribution(Checker& c) {
     c.check(std::fabs(viaTwo / double(n) - expected) < 0.02, "K enters as (P + K)^F");
 }
 
-void TestDeadEndBounce(Checker& c) {
+/// The bounce is the default-off option (fidelity "no next hop although the
+/// destination is known").
+namespace {
+Config bounceOn() {
+    Config cfg;
+    cfg.deadEndBounce = true;
+    return cfg;
+}
+}  // namespace
+
+void TestDeadEndDrops(Checker& c) {
     Harness h(0);
+    std::uint32_t id = 1;
+    hear(h.router, 9, 1, 1, id);  // 1 is the only neighbour and knows of 9
+    const int draws = h.rng.draws();
+    const Decision d = h.router.onReceive(dataFrame(7, 9, 1, 0, 5, 20));
+    c.check(d.action == RouteAction::Drop, "no neighbour but the arrival link: dropped ([RW03])");
+    c.check(h.rng.draws() == draws, "a dead end draws nothing");
+    c.check(!h.router.forwarded().contains({7, 5}), "a dropped packet is not recorded forwarded");
+
+    // A copy coming back from its own next hop is a duplicate: dropped,
+    // the table untouched (no exemption without the bounce).
+    Harness k(0);
+    hear(k.router, 9, 1, 30, id);
+    hear(k.router, 2, 2, 1, id);
+    const Decision first = k.router.onReceive(dataFrame(7, 9, 3, 0, 6));
+    c.check(first.nextHop == 1, "first sent towards the strong trail");
+    const double towardsNine = k.router.table().get(9, 1);
+    const Decision back = k.router.onReceive(dataFrame(7, 9, 1, 0, 6));
+    c.check(back.action == RouteAction::Drop, "the return is a duplicate: dropped");
+    c.check(near(k.router.table().get(9, 1), towardsNine), "P(B, d) untouched");
+}
+
+void TestDeadEndBounce(Checker& c) {
+    Harness h(0, bounceOn());
     std::uint32_t id = 1;
     hear(h.router, 9, 1, 1, id);  // 1 is the only neighbour and knows of 9
     const int draws = h.rng.draws();
@@ -145,7 +178,7 @@ void TestDeadEndBounce(Checker& c) {
 }
 
 void TestBounceIsExempt(Checker& c) {
-    Harness h(0);
+    Harness h(0, bounceOn());
     std::uint32_t id = 1;
     hear(h.router, 9, 1, 30, id);  // 9 through 1, overwhelmingly
     hear(h.router, 2, 2, 1, id);
@@ -164,7 +197,7 @@ void TestBounceIsExempt(Checker& c) {
             "the duplicate list remembers the new next hop");
 
     // A node whose other neighbour is its own upstream bounces further back.
-    Harness k(0);
+    Harness k(0, bounceOn());
     hear(k.router, 9, 1, 1, id);
     const Decision up = k.router.onReceive(dataFrame(7, 9, 3, 0, 6));
     c.check(up.nextHop == 1, "the only way on is 1");
@@ -173,7 +206,7 @@ void TestBounceIsExempt(Checker& c) {
             "no other neighbour: further back, to the upstream node");
 
     // The source records its own packet as forwarded: a bounce is exempt.
-    Harness s(0);
+    Harness s(0, bounceOn());
     hear(s.router, 9, 1, 30, id);
     hear(s.router, 2, 2, 1, id);
     const Decision sent = s.router.originate(9);
