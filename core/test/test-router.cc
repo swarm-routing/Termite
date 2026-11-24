@@ -119,6 +119,7 @@ void TestForwardingDistribution(Checker& c) {
 
     // F = 10 sharpens 3:2 to about 57.7:1; K = 2 flattens it to (5/4)^10.
     Config sharp;
+    sharp.sensitivity = 10.0;
     sharp.threshold = 2.0;
     Harness k(0, sharp, 43);
     hear(k.router, 9, 1, 2, id);

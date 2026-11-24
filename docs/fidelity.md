@@ -72,7 +72,8 @@ generated from it (`fidelity.py bib sources`). [R05] is the dissertation
 (January 2005, 209 pp.), the source of every row. Roth's dissertation-defence
 slides (Cornell University, 44 slides) are a secondary source, superseded by
 [R05]; slide 15 is cited below by name. They have no public record, so they
-have no entry. [RW03] and [RW06] were not read: no row rests on them. [S97]
+have no entry. [RW03] is read in part (#22): the γc and F rows rest on it.
+[RW06] was not read: no row rests on it. [S97]
 (ABC) is background only, for ch. 5's ABC+X; [R05] dates it 1996 (p. 193,
 ref. [45]), the publisher's record 1997. Not read.
 
@@ -121,14 +122,14 @@ and the shared `adaptive-routing-base`, `adaptive-tables.h`) does it.
 
 | Parameter | Value | Source | Notes |
 |---|---|---|---|
-| ch. 4: pheromone deposit per packet, γc | — | unknown | §4.2.2 (eq. 4.1, p. 72) names a constant γc but gives no value, and Table 4.1 omits it. That the deposit is this constant, not p. 71's path utility, is decided (maintainer decision 2026-11-10, [#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6756868538)); its value is not. Ch. 5's classic filter used γc = 1 ([R05] p. 108). The arm used 1. `core/` uses 1 as a placeholder until the value is decided (#6) |
+| ch. 4: pheromone deposit per packet, γc | 1 | [RW03] eq. 1 | the 2003 paper's "nominal value" of γ ([#22](https://github.com/swarm-routing/Termite/issues/22#issuecomment-7089283580)); adopted by the maintainer on 2026-11-24 ([#6](https://github.com/swarm-routing/Termite/issues/6#issuecomment-7142394274)). The dissertation's §4.2.2 (eq. 4.1, p. 72) names a constant γc but gives no value, and Table 4.1 omits it. That the deposit is this constant, not p. 71's path utility, was decided on 2026-11-10 ([#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6756868538)). Ch. 5's classic filter and the arm also use 1 ([R05] p. 108) |
 | ch. 4: initial pheromone | 1 | [R05] Table 4.1, p. 84 | every cell of a new destination column, and of a new neighbour's row and column (§4.2.4, p. 73–74) |
 | ch. 4: pheromone ceiling | 10000 | [R05] Table 4.1, p. 84 | no cell may exceed it (§4.2.4, p. 74) |
 | ch. 4: pheromone floor | 0.1 | [R05] Table 4.1, p. 84 | no cell decays below it (§4.2.4, p. 74). Reading: it is also the "minimum value" a column or row must reach to count as decayed and be removed (§4.2.3, p. 73); the paper does not name the two the same |
 | ch. 4: decay rate, τ | 0.105 per decay period | [R05] Table 4.1, p. 84 | every cell is multiplied by e^(−τ) ≈ 0.90 once per decay period (eq. 4.2, p. 72). Dimensionless per period here; a rate in s⁻¹ in chs. 5 and 7 |
 | ch. 4: decay period | 1 s | [R05] Table 4.1, p. 84 | "nominal" (§4.2.3, p. 72). Periodic, not continuous |
 | ch. 4: pheromone threshold, K | 0 | [R05] §4.2.5, p. 74 | "nominal value of K is zero". §6.3.2 ([R05] p. 129) argues Termite must have K > 0 so lesser links keep some probability; with the floor at 0.1 no cell is ever 0, so K = 0 does not zero a link in ch. 4 |
-| ch. 4: pheromone sensitivity, F | — | unknown | §4.2.5 (p. 74) gives only its effect (F > 1 sharpens, F = 1 normalises). Ch. 5 finds no gain above F = 10 ([R05] §5.4.5, p. 114); ch. 7 runs F = 10 ([R05] p. 154). The arm used 10. `core/` uses 10 as a placeholder until the value is decided (#6) |
+| ch. 4: pheromone sensitivity, F | 2 | [RW03] eq. 3 | the 2003 paper's nominal value, with K = 0 ([#22](https://github.com/swarm-routing/Termite/issues/22#issuecomment-7089283580)); adopted by the maintainer on 2026-11-24 ([#6](https://github.com/swarm-routing/Termite/issues/6#issuecomment-7142394274)). The dissertation's §4.2.5 (p. 74) gives only its effect (F > 1 sharpens, F = 1 normalises). Ch. 5 finds no gain above F = 10 ([R05] §5.4.5, p. 114); ch. 7 runs F = 10 ([R05] p. 154), and so did the arm; #59 runs one F = 10 cell to compare (#5) |
 | ch. 4: rreq timeout | 2 s | [R05] Table 4.1, p. 84 | a buffered data packet with no reply by then is dropped (§4.2.6, p. 75) |
 | ch. 4: RREQs per route request | 2 | [R05] Table 4.1, p. 84 | "may be tuned" (§4.2.6, p. 76) |
 | ch. 4: RREQ retries after the timeout | 0 | [R05] §4.2.6, p. 75 | reading: the text drops the packet at the timeout and describes no re-send |
@@ -200,8 +201,8 @@ written "expected" is a hypothesis for #5, not a measurement.
 
 | Paper | Arm | Difference |
 |---|---|---|
-| ch. 4: γc not given (eq. 4.1) | `Gamma` = 1 | a value ch. 4 does not state; matches ch. 5's classic filter (p. 108). Expected effect: sets the scale F acts on (a fresh column's arrival link goes from 1 to 2, against 1 elsewhere); small on its own |
-| ch. 4: F not given (eq. 4.3) | `Sensitivity` = 10 | taken from ch. 7 ReTermite (p. 154), a different version. Expected effect: at F = 10 a 2:1 pheromone ratio becomes 1024:1, so forwarding is nearly deterministic on the most reinforced link; under mobility that link is often stale, so a high F lengthens recovery and data walks. Direction on the trend unknown |
+| ch. 4: γc not given (eq. 4.1); [RW03] eq. 1 gives 1, this repository's default | `Gamma` = 1 | a value ch. 4 does not state; matches ch. 5's classic filter (p. 108). Expected effect: sets the scale F acts on (a fresh column's arrival link goes from 1 to 2, against 1 elsewhere); small on its own |
+| ch. 4: F not given (eq. 4.3); [RW03] eq. 3 gives 2, this repository's default | `Sensitivity` = 10 | taken from ch. 7 ReTermite (p. 154), a different version. Expected effect: at F = 10 a 2:1 pheromone ratio becomes 1024:1, so forwarding is nearly deterministic on the most reinforced link; under mobility that link is often stale, so a high F lengthens recovery and data walks. Direction on the trend unknown |
 | ch. 4: periodic decay, e^(−τ) every 1 s (eq. 4.2) | continuous e^(−(t − t_last)·τ), τ = 0.105 per second | chs. 5/7's continuous decay with ch. 4's constant: equal at whole periods, up to e^(0.105) ≈ 11 % apart in between, and different in the order of decay and deposit. Expected effect: small |
 | ch. 4: data TTL 32 | the harness's IP TTL, 64 | looping data lives twice as long. Expected effect: walks of 33 to 64 hops that ch. 4 would drop are delivered and counted, which raises PDR and the mean data hop count at every speed and widens the hop count's spread; both enter the anchor's two metrics |
 | ch. 4: a promiscuous node "should maintain" a list of forwarded and overheard message IDs and drop repeats without updating its table (§4.3.9, pp. 81–82) | no message ID, no duplicate list; every received and overheard copy deposits (this repository: on, 64 entries, maintainer decision 2026-11-10, [#4](https://github.com/swarm-routing/Termite/issues/4#issuecomment-6756868538)) | Expected effect: the misleading gradient §4.3.9 describes (a node credits its downstream neighbour with a path to the source that runs back through itself), so data turns back and loops until the TTL. Candidate cause of the arm's long data paths at low speed (6.65 hops at 1 m/s against AODV's 3.11), which raises the baseline the speed trend is measured from |
