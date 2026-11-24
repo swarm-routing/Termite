@@ -21,12 +21,12 @@
 #include "termite-config.h"
 #include "termite-packet.h"
 
-#include "swarm-dedup-history.h"
 #include "swarm-observer.h"
 #include "swarm-pheromone-table.h"
 #include "swarm-ports.h"
 #include "swarm-route-decision.h"
 
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -47,9 +47,42 @@ inline constexpr std::uint32_t kStateBytesPerEntry =
 /// The IDs this node has forwarded and the neighbour each went to: [R05]
 /// §4.3.2's duplicate list, holding forwarded IDs only (maintainer decision
 /// 2026-11-10, #4). Bounded, oldest forgotten first (org rule 7).
+/// What identifies one packet: (source, destination, message ID). Fidelity
+/// Parameters row "RREP message ID" (#200): two requesters can send RREQs
+/// with the same ID for the same destination, and their RREPs share the
+/// source and the ID; the destination (the requester) tells them apart. For
+/// data and RREQs it adds nothing: a packet keeps its destination hop to hop.
+struct PacketKey {
+    NodeAddress source = kInvalidAddress;
+    NodeAddress destination = kInvalidAddress;
+    std::uint32_t messageId = 0;
+    auto operator<=>(const PacketKey&) const = default;
+};
+
+inline PacketKey keyOf(const PacketHeader& h) {
+    return {h.source, h.destination, h.messageId};
+}
+
+/// The packets this node has deposited for (fidelity "deposited-ID record
+/// size"): one deposit per packet per node, overheard ones included. A
+/// bounded set, oldest evicted first (org rule 7).
+class DepositRecord {
+public:
+    explicit DepositRecord(std::size_t capacity) : capacity_(capacity < 1 ? 1 : capacity) {}
+    /// True when `key` was new (and is now recorded).
+    bool record(const PacketKey& key);
+    std::size_t size() const { return seen_.size(); }
+    std::size_t capacity() const { return capacity_; }
+
+private:
+    std::size_t capacity_;
+    std::set<PacketKey> seen_;
+    std::deque<PacketKey> order_;
+};
+
 class ForwardedList {
 public:
-    using Key = std::pair<NodeAddress, std::uint32_t>;  // (source, message ID)
+    using Key = PacketKey;
 
     explicit ForwardedList(std::size_t capacity) : capacity_(capacity < 1 ? 1 : capacity) {}
 
@@ -195,7 +228,7 @@ private:
     swarm::core::PheromoneTable table_;
     std::set<NodeAddress> neighbors_;
     ForwardedList forwarded_;
-    swarm::core::DedupHistory deposited_;
+    DepositRecord deposited_;
     std::uint32_t nextMessageId_ = 0;
     double retainPerPeriod_;
     swarm::core::IRouterObserver* observer_ = nullptr;

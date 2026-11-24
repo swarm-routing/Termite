@@ -150,7 +150,8 @@ void TestDeadEndDrops(Checker& c) {
     const Decision d = h.router.onReceive(dataFrame(7, 9, 1, 0, 5, 20));
     c.check(d.action == RouteAction::Drop, "no neighbour but the arrival link: dropped ([RW03])");
     c.check(h.rng.draws() == draws, "a dead end draws nothing");
-    c.check(!h.router.forwarded().contains({7, 5}), "a dropped packet is not recorded forwarded");
+    c.check(!h.router.forwarded().contains({7, 9, 5}),
+            "a dropped packet is not recorded forwarded");
 
     // A copy coming back from its own next hop is a duplicate: dropped,
     // the table untouched (no exemption without the bounce).
@@ -194,7 +195,7 @@ void TestBounceIsExempt(Checker& c) {
             "P(B, d) towards the dead end drops to the floor (repo choice, #6)");
     c.check(near(h.router.table().get(7, 3), fromThree) && near(h.router.table().get(7, 1), 1.0),
             "the return deposits nothing");
-    c.check(h.router.forwarded().nextHopOf({7, 5}) == back.nextHop,
+    c.check(h.router.forwarded().nextHopOf({7, 9, 5}) == back.nextHop,
             "the duplicate list remembers the new next hop");
 
     // A node whose other neighbour is its own upstream bounces further back.
@@ -287,11 +288,12 @@ void TestLinkLost(Checker& c) {
 void TestBoundedStructures(Checker& c) {
     ForwardedList list(64);
     for (std::uint32_t i = 0; i < 65; ++i)
-        list.record({7, i}, 1);
-    c.check(list.size() == 64 && !list.contains({7, 0}) && list.contains({7, 64}),
+        list.record({7, 9, i}, 1);
+    c.check(list.size() == 64 && !list.contains({7, 9, 0}) && list.contains({7, 9, 64}),
             "the duplicate list holds 64, oldest evicted first");
-    list.record({7, 1}, 3);
-    c.check(list.size() == 64 && list.nextHopOf({7, 1}) == 3, "re-recording updates in place");
+    list.record({7, 9, 1}, 3);
+    c.check(list.size() == 64 && list.nextHopOf({7, 9, 1}) == 3, "re-recording updates in place");
+    c.check(!list.contains({7, 8, 1}), "the destination is part of the key (#200)");
 
     Config cfg;
     cfg.tableCapacity = 4;

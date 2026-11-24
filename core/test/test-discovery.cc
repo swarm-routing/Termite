@@ -7,6 +7,7 @@
 #include "termite-core-tests.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace termite::core::test {
 
@@ -25,6 +26,10 @@ struct Sink : IRouterOutput {
         discarded.emplace_back(dest, count);
     }
 };
+
+bool near(double a, double b) {
+    return std::fabs(a - b) < 1e-9;
+}
 
 /// Node 0 hears one frame of `source`'s via `from`, addressed to itself.
 void hearOnce(Router& r, NodeAddress source, NodeAddress from, std::uint32_t id) {
@@ -195,6 +200,26 @@ void TestRouteReplyReleases(Checker& c) {
     c.check(mid.router.onReceive(lost).action == RouteAction::Drop,
             "no column for the requester: dropped, not held");
     c.check(mid.router.held() == 0, "control is never held");
+
+    // Two requesters, 1 and 2, whose RREQs for 9 had the same ID: their
+    // RREPs share source and ID, and the relay carries and deposits both,
+    // since the key includes the destination (#200, found on #220).
+    Harness relay(0);
+    hearOnce(relay.router, 1, 1, 1);
+    hearOnce(relay.router, 2, 2, 1);
+    hearOnce(relay.router, 3, 3, 1);
+    PacketHeader toOne = dataFrame(9, 1, 3, 0, 5 | kReplyIdBit, 30);
+    toOne.type = PacketType::RouteReply;
+    PacketHeader toTwo = toOne;
+    toTwo.destination = 2;
+    const Decision first = relay.router.onReceive(toOne);
+    const double once = relay.router.table().get(9, 3);
+    const Decision second = relay.router.onReceive(toTwo);
+    c.check(first.action == RouteAction::Unicast && first.nextHop == 1 &&
+                second.action == RouteAction::Unicast && second.nextHop == 2,
+            "both RREPs are routed on, each to its requester");
+    c.check(near(relay.router.table().get(9, 3), once + relay.router.config().deposit),
+            "and each deposits for 9");
 }
 
 void TestHeldTimeoutAndCap(Checker& c) {

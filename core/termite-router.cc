@@ -17,6 +17,17 @@ namespace termite::core {
 using swarm::core::RouteAction;
 using swarm::core::WeightedHop;
 
+bool DepositRecord::record(const PacketKey& key) {
+    if (seen_.count(key) != 0) return false;
+    if (seen_.size() >= capacity_) {
+        seen_.erase(order_.front());
+        order_.pop_front();
+    }
+    seen_.insert(key);
+    order_.push_back(key);
+    return true;
+}
+
 void ForwardedList::record(const Key& key, NodeAddress nextHop) {
     auto it = nextHop_.find(key);
     if (it != nextHop_.end()) {
@@ -101,7 +112,7 @@ Decision Router::receive(const PacketHeader& header) {
         header.destination == kInvalidAddress)
         return Decision::drop();
     const bool addressed = header.nextHop == self_;
-    const Key key{header.source, header.messageId};
+    const Key key = keyOf(header);
 
     // Fidelity "ch. 4: duplicate list": a copy whose ID this node has
     // forwarded is dropped without touching the table, overheard or not
@@ -184,7 +195,7 @@ Decision Router::walk(PacketHeader header, NodeAddress arrival) {
                                  ? candidates.front()
                                  : candidates[static_cast<std::size_t>(
                                        rng_.uniformInt(static_cast<int>(candidates.size())))];
-    forwarded_.record({header.source, header.messageId}, next);
+    forwarded_.record(keyOf(header), next);
     header.previousHop = self_;
     header.nextHop = next;
     header.ttl = static_cast<std::uint8_t>(header.ttl - 1);
@@ -300,7 +311,7 @@ Decision Router::forward(PacketHeader header, NodeAddress arrival) {
     }
     if (next == kInvalidAddress) return Decision::drop();
 
-    forwarded_.record({header.source, header.messageId}, next);
+    forwarded_.record(keyOf(header), next);
     header.previousHop = self_;
     header.nextHop = next;
     header.ttl = static_cast<std::uint8_t>(header.ttl - 1);
@@ -311,7 +322,7 @@ void Router::depositOnce(const PacketHeader& header) {
     // One deposit per packet per node (#4, 2026-11-10): the record holds the
     // IDs deposited for, overheard ones included (fidelity "deposited-ID
     // record size").
-    if (!deposited_.record(header.source, header.messageId)) return;
+    if (!deposited_.record(keyOf(header))) return;
     if (!addNeighbor(header.previousHop)) return;
     // The table never holds a column for this node itself (§4.2.1).
     if (header.source == self_ || !addColumn(header.source)) return;
