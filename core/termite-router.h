@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
@@ -125,9 +126,14 @@ public:
 
 class Router {
 public:
-    /// `rng` and `timers` must outlive the router.
+    /// `rng` and `timers` must outlive the router. A timer that fires after
+    /// the router is gone does nothing: each callback holds a weak reference
+    /// to the router's liveness token, which the destructor releases.
     Router(NodeAddress self, const Config& config, swarm::core::IRng& rng,
            swarm::core::ITimerScheduler& timers);
+    ~Router() = default;
+    Router(const Router&) = delete;
+    Router& operator=(const Router&) = delete;
 
     /// Reports to `observer` (swarm-core's IRouterObserver); null, the
     /// default, reports nothing. It must outlive the router and only reads:
@@ -203,6 +209,9 @@ private:
     /// Releases the held data of every pending destination now known.
     void releaseKnown();
     void onRequestTimeout(NodeAddress destination, std::uint64_t generation);
+    /// The next message ID this node originates: the counter's low 31 bits,
+    /// so it never carries kReplyIdBit and never collides with a RREP's ID.
+    std::uint32_t nextMessageId();
     /// onControlSent for a RREQ or RREP this node sends (docs/observer.md).
     void reportControlSent(PacketType type);
     Decision receive(const PacketHeader& header);
@@ -237,6 +246,10 @@ private:
     std::map<NodeAddress, Request> pending_;  // ordered: releases run in address order
     std::size_t heldCount_ = 0;
     std::uint64_t nextGeneration_ = 0;
+    /// Timer callbacks capture a weak_ptr to it; destroyed with the router,
+    /// so a pending timer finds it expired and returns (declared last:
+    /// released first).
+    std::shared_ptr<char> alive_ = std::make_shared<char>(0);
 };
 
 }  // namespace termite::core

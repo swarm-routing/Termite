@@ -59,10 +59,15 @@ void Router::start() {
 
 void Router::scheduleDecay() {
     if (!(config_.decayPeriod > 0.0)) return;
-    timers_.schedule(config_.decayPeriod, [this] {
+    timers_.schedule(config_.decayPeriod, [this, alive = std::weak_ptr<char>(alive_)] {
+        if (alive.expired()) return;  // the router is gone
         decay();
         scheduleDecay();
     });
+}
+
+std::uint32_t Router::nextMessageId() {
+    return nextMessageId_++ & ~kReplyIdBit;
 }
 
 bool Router::knows(NodeAddress destination) const {
@@ -77,7 +82,7 @@ Decision Router::originate(NodeAddress destination) {
     header.source = self_;
     header.destination = destination;
     header.previousHop = self_;
-    header.messageId = nextMessageId_++;
+    header.messageId = nextMessageId();
     header.ttl = config_.dataTtl;
     // Fidelity "ch. 4: no next hop although the destination is known": the
     // source records its own packet as forwarded, so a bounce back to it is
@@ -219,9 +224,11 @@ void Router::request(NodeAddress destination) {
     Request& r = pending_[destination];
     r.generation = ++nextGeneration_;
     const std::uint64_t generation = r.generation;
-    timers_.schedule(config_.rreqTimeout, [this, destination, generation] {
-        onRequestTimeout(destination, generation);
-    });
+    timers_.schedule(config_.rreqTimeout,
+                     [this, alive = std::weak_ptr<char>(alive_), destination, generation] {
+                         if (alive.expired()) return;  // the router is gone
+                         onRequestTimeout(destination, generation);
+                     });
     // Fidelity "ch. 4: RREQs per route request" (Table 4.1): independent walks.
     // With no neighbour none can leave (a RREQ that cannot be forwarded is
     // dropped), so none takes an ID; the request still times out. Without an
@@ -233,7 +240,7 @@ void Router::request(NodeAddress destination) {
         rreq.source = self_;
         rreq.destination = destination;
         rreq.previousHop = self_;
-        rreq.messageId = nextMessageId_++;
+        rreq.messageId = nextMessageId();
         rreq.ttl = config_.rreqTtl;
         const Decision d = walk(rreq, kInvalidAddress);
         if (d.action != RouteAction::Unicast) continue;

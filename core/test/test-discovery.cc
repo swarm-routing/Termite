@@ -242,6 +242,22 @@ void TestHeldTimeoutAndCap(Checker& c) {
     c.check(!h.router.requesting(9) && h.router.held() == 0, "no retry: the request ends");
     c.check(h.router.originate(9).action == RouteAction::Queue && h.router.requesting(9),
             "a later packet starts a new request");
+
+    // A router destroyed with its timeout and decay still pending: the
+    // timers fire on nothing (ASan would catch a use after free).
+    EventQueue events;
+    SeededRng rng(1);
+    {
+        Router gone(0, Config{}, rng, events);
+        Sink quiet;
+        gone.setOutput(&quiet);
+        gone.start();
+        hearOnce(gone, 1, 1, 1);
+        gone.originate(9);
+        c.check(gone.requesting(9), "a request and a decay are pending");
+    }
+    events.runUntil(10.0);
+    c.check(true, "the pending timers of a destroyed router do nothing");
 }
 
 namespace {
