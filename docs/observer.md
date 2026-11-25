@@ -13,9 +13,9 @@ and compares the traces).
 | Callback | When | Notes |
 |----------|------|-------|
 | `onControlReceived(kind, bytes)` | `onReceive` is handed a non-data packet (hello, seed, RREQ, RREP), addressed or overheard | `kind` is the wire type byte, `bytes` is `kPacketWireSize` (23) |
-| `onControlSent(kind, broadcast, bytes)` | never yet | Termite has no control ants; this slice sends no hello, seed, RREQ or RREP. It is reported where the next slice sends them |
+| `onControlSent(kind, broadcast, bytes)` | a RREQ or RREP this node sends: each RREQ a new route request originates, a RREQ walked on, the RREP that answers a RREQ, a RREP routed on (#200) | `kind` is the wire type byte (4 RREQ, 5 RREP), `broadcast` false (each goes to one neighbour), `bytes` `kPacketWireSize`. Termite has no control ants; hello and seed come with #201 |
 | `onRouteChanged(dest, nextHop, added)` | a pheromone cell `(dest, neighbour)` appears (new neighbour's row, new column, first deposit) or disappears (decay to the floor, lost link) | a deposit on an existing cell, and decay of a live cell, are not route changes |
-| `onDataDecision(dest, action)` | each data packet originated or received: Unicast (forwarded), Queue, Drop, Deliver | an overheard frame (`None`) and control packets are not data decisions |
+| `onDataDecision(dest, action)` | each data packet originated or received: Unicast (forwarded), Queue (held for a route request), Drop, Deliver; and each held packet again when it is released (Unicast or Drop). A held packet dropped at the rreq timeout is reported to the output port (`IRouterOutput::discard`), not here | an overheard frame (`None`) and control packets are not data decisions |
 | `onStateSize(entries, bytes)` | after `onReceive`, `decay` and `onLinkLost`, when the cell count changed | `bytes = entries * kStateBytesPerEntry` (16: two addresses and a double) |
 
 ## How the pheromone is counted

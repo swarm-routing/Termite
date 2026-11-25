@@ -10,7 +10,7 @@ namespace termite::core::test {
 
 namespace {
 
-constexpr std::array<NamedTest, 20> kTests{{
+constexpr std::array<NamedTest, 26> kTests{{
     {"header codec: roundtrip", TestPacketRoundtrip},
     {"header codec: the decoder fails closed", TestPacketDecoderFailsClosed},
     {"header codec: seeded fuzz", TestPacketFuzz},
@@ -22,6 +22,12 @@ constexpr std::array<NamedTest, 20> kTests{{
     {"dead end, bounce on: back on the arrival link", TestDeadEndBounce},
     {"dead end, bounce on: the bounce is exempt and lowers P(B, d)", TestBounceIsExempt},
     {"unknown destination: queued with its header", TestUnknownDestinationQueues},
+    {"route request: two walks, one request per destination", TestRouteRequestOrigination},
+    {"route request: uniform walk, never back, duplicates end it", TestRouteRequestWalk},
+    {"route request: who answers, and the RREP's fields", TestRouteRequestAnswer},
+    {"route reply: routed back, releases the held data", TestRouteReplyReleases},
+    {"held data: dropped at the rreq timeout, capped", TestHeldTimeoutAndCap},
+    {"end to end: discovery on a chain and a diamond", TestDiscoveryEndToEnd},
     {"TTL: decremented per hop, 0 drops in transit", TestTtl},
     {"decay: eq. 4.2 per period, floor, removals", TestPeriodicDecay},
     {"link loss: the row goes at once", TestLinkLost},
