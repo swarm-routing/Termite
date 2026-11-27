@@ -12,6 +12,9 @@
 #include "ns3/swarm-ns3-ports.h"
 #include "ns3/udp-header.h"
 
+#include <deque>
+#include <map>
+
 namespace ns3 {
 namespace termite {
 
@@ -25,8 +28,35 @@ namespace {
 constexpr uint16_t kIpv4EtherType = 0x0800;
 
 using swarm::core::RouteAction;
+using Decision = swarm::core::RouteDecision<core::PacketHeader>;
+
+/// A control packet: the core's header alone, the UDP payload of a control
+/// socket on kTermitePort.
+Ptr<Packet> EncodeControl(const core::PacketHeader& h) {
+    Ptr<Packet> p = Create<Packet>();
+    p->AddHeader(TermiteHeader(h));
+    return p;
+}
 
 }  // namespace
+
+/// The core's route-discovery sends (#200), carried out by the adapter.
+class RoutingProtocol::Output : public core::IRouterOutput {
+public:
+    explicit Output(RoutingProtocol& protocol) : m_protocol(protocol) {}
+    void sendControl(const Decision& decision) override { m_protocol.SendControl(decision); }
+    void release(core::NodeAddress destination, const std::vector<Decision>& decisions) override {
+        m_protocol.Release(destination, decisions);
+    }
+    void discard(core::NodeAddress destination, std::size_t /*count*/) override {
+        // Fidelity "ch. 4: unknown destination": the rreq timeout passed; the
+        // base drops every packet held for it through its error callback.
+        m_protocol.DiscardDeferred(ToIpv4Address(destination));
+    }
+
+private:
+    RoutingProtocol& m_protocol;
+};
 
 TypeId RoutingProtocol::GetTypeId() {
     static TypeId tid =
@@ -59,7 +89,9 @@ void RoutingProtocol::DoInitialize() {
     // constants are core::Config's defaults, each sourced in docs/fidelity.md.
     m_router = std::make_unique<core::Router>(ToNodeAddress(MainAddress()), core::Config{}, Rng(),
                                               Timers());
+    m_output = std::make_unique<Output>(*this);
     m_router->setObserver(&Observer());
+    m_router->setOutput(m_output.get());
     m_router->start();
     // Promiscuous reception ([R05] §4.2.2): frames addressed to other nodes,
     // on every device but the loopback.
@@ -78,6 +110,7 @@ void RoutingProtocol::DoDispose() {
     // The base cancels the core's pending timers first; then the router goes.
     SwarmRoutingBase::DoDispose();
     m_router.reset();
+    m_output.reset();
 }
 
 double RoutingProtocol::Pheromone(Ipv4Address destination, Ipv4Address neighbor) const {
@@ -96,16 +129,74 @@ Ipv4Address RoutingProtocol::SelectNextHop(Ipv4Address /*dst*/, Ipv4Address /*sr
     return Ipv4Address();
 }
 
-void RoutingProtocol::StartDiscovery(Ipv4Address dst) {
-    // RouteInput handles every data packet, so the base never holds one; if it
-    // ever did, the core has no route request to release it yet (#6).
-    DiscardDeferred(dst);
+void RoutingProtocol::StartDiscovery(Ipv4Address /*dst*/) {
+    // Defer calls it for every packet held; the core started the route
+    // request (or joined a pending one) when it returned Queue (#200).
 }
 
-void RoutingProtocol::RecvControl(Ptr<Packet> /*p*/, Ipv4Address from, Ipv4Address /*receiver*/) {
-    // The core's first slice sends no control packets (hello, seed, RREQ and
-    // RREP are its next slices, #6).
-    NS_LOG_DEBUG("ignored a control packet from " << from);
+void RoutingProtocol::RecvControl(Ptr<Packet> p, Ipv4Address from, Ipv4Address /*receiver*/) {
+    if (!m_router || p->GetSize() < core::kPacketWireSize) return;
+    TermiteHeader th;
+    p->RemoveHeader(th);
+    // A control packet is the header alone; data never comes this way.
+    if (!th.IsValid() || th.Get().type == core::PacketType::Data) {
+        NS_LOG_DEBUG("no valid Termite control header from " << from);
+        return;
+    }
+    SendControl(m_router->onReceive(th.Get()));
+}
+
+void RoutingProtocol::SendControl(const Decision& d) {
+    // A RREQ walked on or a RREP: Unicast to a one-hop neighbour (#156);
+    // None and Drop send nothing.
+    if (d.action == RouteAction::Unicast) Execute(d, EncodeControl);
+}
+
+void RoutingProtocol::Release(core::NodeAddress destination,
+                              const std::vector<Decision>& decisions) {
+    // The held packets carry the header the core held them with, so each is
+    // matched to its decision by (source, destination, message ID).
+    // A copy that arrived twice before the destination was known is held
+    // twice under one key, each with its own decision (its own arrival link
+    // excluded): both lists are in hold order, so each entry takes the next
+    // decision of its key.
+    std::map<core::PacketKey, std::deque<const Decision*>> byKey;
+    for (const Decision& d : decisions) {
+        if (d.message) byKey[core::keyOf(*d.message)].push_back(&d);
+    }
+    for (DeferredPacket& e : GetDeferredQueue()->Release(ToIpv4Address(destination))) {
+        const uint8_t protocol = e.header.GetProtocol();
+        const auto held = ReadPacketHeader(e.packet, protocol);
+        const Decision* decision = nullptr;
+        if (held) {
+            auto it = byKey.find(core::keyOf(*held));
+            if (it != byKey.end() && !it->second.empty()) {
+                decision = it->second.front();
+                it->second.pop_front();
+            }
+        }
+        const Ptr<Packet> payload = held ? StripPacketHeader(e.packet, protocol) : e.packet->Copy();
+        Ipv4Header out = e.header;
+        if (!decision || decision->action != RouteAction::Unicast) {
+            // Dropped by the core (TTL, a dead end), or a packet it no
+            // longer holds: dropped through its error callback.
+            if (held) {
+                m_dataTrace(ToIpv4Address(held->source), held->messageId,
+                            static_cast<uint8_t>(RouteAction::Drop), Ipv4Address());
+            }
+            out.SetPayloadSize(payload->GetSize());
+            if (!e.ecb.IsNull()) e.ecb(payload, out, Socket::ERROR_NOROUTETOHOST);
+            continue;
+        }
+        const Decision& d = *decision;
+        const Ipv4Address next = ToIpv4Address(d.nextHop);
+        m_dataTrace(ToIpv4Address(held->source), held->messageId,
+                    static_cast<uint8_t>(RouteAction::Unicast), next);
+        Ptr<Packet> q = AddPacketHeader(payload, protocol, *d.message);
+        out.SetPayloadSize(q->GetSize());
+        GetDeferredQueue()->NoteForwarded(e);
+        ForwardData(q, out, next, e.ucb);
+    }
 }
 
 void RoutingProtocol::OnLinkFailure(Ipv4Address neighbor) {
@@ -184,9 +275,16 @@ void RoutingProtocol::Carry(const swarm::core::RouteDecision<core::PacketHeader>
     case RouteAction::None:
         // A frame the core only learns from (not addressed data): nothing to send.
         return;
+    case RouteAction::Queue: {
+        // Fidelity "ch. 4: unknown destination" (#200): held with the header
+        // the core holds, until Release or the rreq timeout (Output::discard).
+        Ptr<Packet> q = AddPacketHeader(payload, header.GetProtocol(), *d.message);
+        out.SetPayloadSize(q->GetSize());
+        Defer(q, out, ucb, ecb);
+        return;
+    }
     default:
-        // Drop, and Queue: the core's route request (which would release a
-        // held packet) is its next slice, so the packet is dropped now.
+        // Drop (a full held buffer, the TTL, a dead end, a duplicate).
         out.SetPayloadSize(payload->GetSize());
         if (!ecb.IsNull()) ecb(payload, out, Socket::ERROR_NOROUTETOHOST);
         return;

@@ -10,9 +10,9 @@ name: ns-3
 # routing-bench (swarm-routing/ns3-tools) is built beside it so the harness arm
 # (ns3/helper/termite-bench-arms.cc) compiles and runs.
 #
-# No determinism program yet: the core's first slice has no hello, seed or
-# route request (#6), so a fresh network delivers nothing and every seed would
-# print the same. test.py's determinism case covers it on a laid trail until
+# No determinism program yet: route discovery is in (#200), but with no hello
+# (#201) a fresh node knows no neighbour, sends no RREQ, and delivers nothing,
+# so every seed would print the same. test.py's determinism case covers it on a laid trail until
 # an example delivers; then `determinism:` names that example.
 #
 # core/ also builds alone against the same swarm-core release, from its vcpkg
@@ -67,7 +67,7 @@ jobs:
       coverage: ${{ inputs.ns3-versions == '' }}
       sonar: ${{ inputs.ns3-versions == '' }}
       # The harness runs the arm, as ns3-tools runs its stock arms. It delivers
-      # nothing until the core can learn a destination (#6); the run checks
+      # nothing until a node hears its neighbours (hello, #201); the run checks
       # that the arm registers and runs clean (sanitizers included).
       run: routing-compare --scenario=paper --nNodes=20 --time=30 --runs=1 --protocols=termite
       dual-roots: 'core/'
