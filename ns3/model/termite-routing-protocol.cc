@@ -12,6 +12,7 @@
 #include "ns3/swarm-ns3-ports.h"
 #include "ns3/udp-header.h"
 
+#include <deque>
 #include <map>
 
 namespace ns3 {
@@ -155,17 +156,28 @@ void RoutingProtocol::Release(core::NodeAddress destination,
                               const std::vector<Decision>& decisions) {
     // The held packets carry the header the core held them with, so each is
     // matched to its decision by (source, destination, message ID).
-    std::map<core::PacketKey, const Decision*> byKey;
+    // A copy that arrived twice before the destination was known is held
+    // twice under one key, each with its own decision (its own arrival link
+    // excluded): both lists are in hold order, so each entry takes the next
+    // decision of its key.
+    std::map<core::PacketKey, std::deque<const Decision*>> byKey;
     for (const Decision& d : decisions) {
-        if (d.message) byKey.emplace(core::keyOf(*d.message), &d);
+        if (d.message) byKey[core::keyOf(*d.message)].push_back(&d);
     }
     for (DeferredPacket& e : GetDeferredQueue()->Release(ToIpv4Address(destination))) {
         const uint8_t protocol = e.header.GetProtocol();
         const auto held = ReadPacketHeader(e.packet, protocol);
-        const auto it = held ? byKey.find(core::keyOf(*held)) : byKey.end();
+        const Decision* decision = nullptr;
+        if (held) {
+            auto it = byKey.find(core::keyOf(*held));
+            if (it != byKey.end() && !it->second.empty()) {
+                decision = it->second.front();
+                it->second.pop_front();
+            }
+        }
         const Ptr<Packet> payload = held ? StripPacketHeader(e.packet, protocol) : e.packet->Copy();
         Ipv4Header out = e.header;
-        if (it == byKey.end() || it->second->action != RouteAction::Unicast) {
+        if (!decision || decision->action != RouteAction::Unicast) {
             // Dropped by the core (TTL, a dead end), or a packet it no
             // longer holds: dropped through its error callback.
             if (held) {
@@ -176,7 +188,7 @@ void RoutingProtocol::Release(core::NodeAddress destination,
             if (!e.ecb.IsNull()) e.ecb(payload, out, Socket::ERROR_NOROUTETOHOST);
             continue;
         }
-        const Decision& d = *it->second;
+        const Decision& d = *decision;
         const Ipv4Address next = ToIpv4Address(d.nextHop);
         m_dataTrace(ToIpv4Address(held->source), held->messageId,
                     static_cast<uint8_t>(RouteAction::Unicast), next);

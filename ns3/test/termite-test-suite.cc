@@ -317,8 +317,8 @@ public:
     /// At `at`, node `from` sends the frame a Termite node would: `h` right
     /// after the UDP header of a datagram to kTrailPort, in an IPv4 packet from h.source to
     /// h.destination, to node `to`'s MAC address. No routing at `from`.
-    void Lay(double at, uint32_t from, uint32_t to, const PacketHeader& h) {
-        Simulator::Schedule(Seconds(at), &Net::SendRaw, this, from, to, h);
+    void Lay(double at, uint32_t from, uint32_t to, const PacketHeader& h, uint8_t ipTtl = 64) {
+        Simulator::Schedule(Seconds(at), &Net::SendRaw, this, from, to, h, ipTtl);
     }
 
     /// Node `from` sends `count` data packets of kPayload bytes to `to`.
@@ -350,7 +350,7 @@ public:
     uint32_t controlEvents = 0;  ///< the core sends no control packet: stays 0
 
 private:
-    void SendRaw(uint32_t from, uint32_t to, PacketHeader h) {
+    void SendRaw(uint32_t from, uint32_t to, PacketHeader h, uint8_t ipTtl) {
         Ptr<Packet> p = Create<Packet>(8);
         UdpHeader udp;
         udp.SetSourcePort(kTrailPort);
@@ -361,7 +361,7 @@ private:
         ip.SetSource(ToIpv4Address(h.source));
         ip.SetDestination(ToIpv4Address(h.destination));
         ip.SetProtocol(17);
-        ip.SetTtl(64);
+        ip.SetTtl(ipTtl);
         ip.SetPayloadSize(p->GetSize());
         p->AddHeader(ip);
         Ptr<NetDevice> dev = m_devs.Get(from);
@@ -686,6 +686,69 @@ private:
     }
 };
 
+/// Ipv4L3Protocol "Tx" of a relay: for each data packet it forwards, whether
+/// the next hop in its Termite header is the neighbour that copy came from.
+/// The copies are told apart by their IPv4 TTL (each held entry keeps its own
+/// IPv4 header): `arrivalByTtl` maps the IPv4 TTL a copy leaves with to the
+/// neighbour it arrived from.
+struct RelayTx {
+    std::map<uint8_t, Ipv4Address> arrivalByTtl;
+    uint32_t forwarded = 0;
+    uint32_t backOnArrival = 0;
+};
+void CountRelayTx(RelayTx* c, Ptr<const Packet> p, Ptr<Ipv4>, uint32_t iface) {
+    if (iface == 0) return;
+    Ptr<Packet> q = p->Copy();
+    Ipv4Header ip;
+    q->RemoveHeader(ip);
+    UdpHeader udp;
+    if (ip.GetProtocol() != 17 || !q->PeekHeader(udp) || udp.GetDestinationPort() != kTrailPort)
+        return;
+    const auto h = ns3::termite::ReadPacketHeader(q, kUdp);
+    if (!h || h->type != PacketType::Data) return;
+    const auto it = c->arrivalByTtl.find(ip.GetTtl());
+    if (it == c->arrivalByTtl.end()) return;
+    ++c->forwarded;
+    if (ToIpv4Address(h->nextHop) == it->second) ++c->backOnArrival;
+}
+
+/// One packet held twice (CodeRabbit on #248): relay 1 receives the same
+/// data packet (same source, destination and ID) from node 0 and from node
+/// 2 while its destination, node 3, is unknown, so it holds two copies. When
+/// 3 becomes known (a frame of 3's via 0), each copy leaves by its own
+/// decision: never back on the link it arrived on.
+class HeldTwiceTestCase : public TestCase {
+public:
+    HeldTwiceTestCase()
+        : TestCase("adapter: a packet held twice leaves twice, neither back on its arrival link") {}
+
+private:
+    void DoRun() override {
+        // 0 - 1 - 2 in a line (0 and 2 out of each other's range); 3 far away.
+        Net n({{-200, 0, 0}, {0, 0, 0}, {200, 0, 0}, {0, 2000, 0}}, 1);
+        n.Lay(0.1, 0, 1, Trail(n, 0, 0, 1, kTrailId, 32));
+        n.Lay(0.2, 2, 1, Trail(n, 2, 2, 1, kTrailId + 1, 32));
+        const PacketHeader viaZero{PacketType::Data, n.Core(0), n.Core(3), n.Core(0),
+                                   n.Core(1),        77,        31};
+        PacketHeader viaTwo = viaZero;
+        viaTwo.previousHop = n.Core(2);
+        // IPv4 TTLs 50 and 40 tell the copies apart; they leave with 49 and 39.
+        n.Lay(0.5, 0, 1, viaZero, 50);
+        n.Lay(0.6, 2, 1, viaTwo, 40);
+        RelayTx tx;
+        tx.arrivalByTtl = {{49, n.Addr(0)}, {39, n.Addr(2)}};
+        n.L3(1)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&CountRelayTx, &tx));
+        uint32_t held = 0;
+        Simulator::Schedule(Seconds(0.9), [&] { held = n.Proto(1)->GetDeferredQueue()->Size(); });
+        // 3 becomes known at 1, through 0 only: P(3 via 0) > P(3 via 2).
+        n.Lay(1.0, 0, 1, {PacketType::Data, n.Core(3), n.Core(1), n.Core(0), n.Core(1), 99, 30});
+        n.Run(1.5);
+        NS_TEST_EXPECT_MSG_EQ(held, 2u, "both copies held");
+        NS_TEST_EXPECT_MSG_EQ(tx.forwarded, 2u, "both copies forwarded once 3 is known");
+        NS_TEST_EXPECT_MSG_EQ(tx.backOnArrival, 0u, "neither sent back on its arrival link");
+    }
+};
+
 /// The Termite header's bytes 2-3 are the low bytes of the source address: for
 /// 10.1.166.21 they read 0x15A6, the control port, if taken for a UDP header.
 /// When the header rode in front of the UDP header, such a source's data had
@@ -829,6 +892,7 @@ public:
         AddTestCase(new RouteDiscoveryTestCase(false), TestCase::Duration::QUICK);
         AddTestCase(new RouteDiscoveryTestCase(true), TestCase::Duration::QUICK);
         AddTestCase(new UnknownDestinationTestCase, TestCase::Duration::QUICK);
+        AddTestCase(new HeldTwiceTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ControlLookalikeTestCase, TestCase::Duration::QUICK);
         AddTestCase(new OverhearTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ObserverTestCase, TestCase::Duration::QUICK);
