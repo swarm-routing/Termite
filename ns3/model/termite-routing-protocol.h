@@ -23,9 +23,18 @@
 //    core::Router::onReceive decides: Deliver hands the packet without the
 //    header to the local transport; Unicast sends it on with the core's new
 //    header; Drop drops it through the error callback.
-//  - Queue (the destination is unknown): the core's route request is its next
-//    slice (#6), so nothing would ever release the packet; it is dropped at
-//    once, not held (docs/fidelity.md, "ch. 4: unknown destination").
+//  - Queue (the destination is unknown, #200): the core holds the header and
+//    runs a route request; the adapter holds the packet, the core's header on,
+//    in the base's deferred queue (SwarmRoutingBase::Defer). When the core
+//    releases the destination (core::IRouterOutput::release), each held
+//    packet leaves with the header the core gives it for that hop, or is
+//    dropped through its error callback; at the rreq timeout
+//    (IRouterOutput::discard) the base drops them (DiscardDeferred).
+//  - control packets (RREQ, RREP; #200): the core's header alone, as the UDP
+//    payload of swarm-core's control sockets on kTermitePort. Every one goes
+//    to a one-hop neighbour (UnicastControl through Execute, IP TTL 1) and is
+//    sent on hop by hop by the core at each node, so none needs relaying at
+//    the IP layer (#156). RecvControl hands a received one to onReceive.
 //  - promiscuous reception ([R05] §4.2.2): every 802.11 frame addressed to
 //    another node is read too, and a valid header goes to onReceive, which
 //    deposits and returns None.
@@ -41,6 +50,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace termite::core {
 class Router;
@@ -55,8 +65,8 @@ namespace core = ::termite::core;
 
 class RoutingProtocol : public SwarmRoutingBase {
 public:
-    /// UDP port of Termite's control packets (AntHocNet's `termite` arm: 5542).
-    /// The core's first slice sends none; hello, seed, RREQ and RREP use it.
+    /// UDP port of Termite's control packets (AntHocNet's `termite` arm: 5542):
+    /// RREQ and RREP (#200); hello and seed (#201) will use it too.
     static constexpr uint16_t kTermitePort = 5542;
 
     static TypeId GetTypeId();
@@ -90,6 +100,15 @@ protected:
     void OnLinkFailure(Ipv4Address neighbor) override;
 
 private:
+    class Output;  // the core's route-discovery sends (core::IRouterOutput)
+
+    /// Sends a control decision of the core (Unicast of a RREQ or RREP) on a
+    /// control socket; any other action sends nothing.
+    void SendControl(const swarm::core::RouteDecision<core::PacketHeader>& d);
+    /// Carries out the core's release of `destination`: each held packet
+    /// leaves with its decision's header, or is dropped (IRouterOutput::release).
+    void Release(swarm::core::NodeAddress destination,
+                 const std::vector<swarm::core::RouteDecision<core::PacketHeader>>& decisions);
     /// Carries out the core's decision on a data packet: `payload` is the
     /// IPv4 payload without a Termite header; `in` names the packet for the
     /// Data trace when the decision carries no header.
@@ -101,6 +120,7 @@ private:
     void Overhear(Ptr<NetDevice> device, Ptr<const Packet> frame, uint16_t protocol,
                   const Address& from, const Address& to, NetDevice::PacketType type);
 
+    std::unique_ptr<Output> m_output;  // declared before the router: outlives it
     std::unique_ptr<core::Router> m_router;
     TracedCallback<Ipv4Address, uint32_t, uint8_t, Ipv4Address> m_dataTrace;
 };

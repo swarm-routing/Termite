@@ -7,15 +7,17 @@
 //   legs run them inside ns-3 as core.yml runs them alone;
 // - the ns-3 header codec: roundtrip through a Packet, and a seeded fuzz of
 //   the reader a received data packet goes through (org rule 3);
-// - the adapter on static 802.11b topologies. The core's first slice has no
-//   hello, seed or route request (#6), so a fresh network knows no
-//   destination; each test first lays a trail as a packet of the destination
-//   would, with raw frames sent through packet sockets (real frames, through
-//   the receivers' RouteInput and their neighbours' promiscuous reception).
-//   Then: data delivered over the trail with the header on the air and off
-//   the delivered payload, the reply over the trail the data laid, a packet
-//   to an unknown destination dropped rather than held, an overheard frame
-//   depositing once, multipath forwarding (eq. 4.3);
+// - the adapter on static 802.11b topologies. The core has no hello or seed
+//   yet (#201), so a fresh network knows no neighbour; each test first lays
+//   trails or neighbours as packets of those nodes would, with raw frames
+//   sent through packet sockets (real frames, through the receivers'
+//   RouteInput and their neighbours' promiscuous reception). Then: data
+//   delivered over the trail with the header on the air and off the
+//   delivered payload, the reply over the trail the data laid, route
+//   discovery (RREQ and RREP, one hop at a time at IPv4 TTL 1; #200, #156)
+//   delivering to a node that never sent, on a chain and a diamond, data for
+//   an unknown destination held and dropped at the rreq timeout, an overheard
+//   frame depositing once, multipath forwarding (eq. 4.3);
 // - determinism: the same seed gives the same decision trace, another seed
 //   another (org rule 5).
 // Through the include path (core/, resolved past the contrib link), not
@@ -485,7 +487,6 @@ private:
         });
         n.Send(1.0, 0.25, 10, 0, n.Addr(3));
         n.Send(4.0, 0.25, 5, 3, n.Addr(0));
-        n.Send(6.0, 0.25, 1, 0, Ipv4Address("10.1.1.250"));  // nobody's address
         n.Run(7.0);
 
         NS_TEST_EXPECT_MSG_EQ(n.received[3], 10u, "every packet 0 -> 3 delivered over the trail");
@@ -514,19 +515,174 @@ private:
         // three hops and 5 back over three, and no control (#95).
         NS_TEST_EXPECT_MSG_EQ(tx.udp, 45u, "every data hop on the air");
         NS_TEST_EXPECT_MSG_EQ(tx.control, 0u, "no data hop counted as routing control");
-
-        // The packet to an unknown destination: dropped at once, never held.
-        NS_TEST_EXPECT_MSG_EQ(routeDrops, 1u, "one route drop at node 0");
+        NS_TEST_EXPECT_MSG_EQ(routeDrops, 0u, "no route drop at node 0");
         NS_TEST_EXPECT_MSG_EQ(n.Proto(0)->GetDeferredQueue()->Stats().enqueued, 0u,
-                              "nothing held in the deferred queue");
+                              "a known destination: nothing held");
+        // The data laid the reverse trail: node 2 reaches 0 through 1.
+        NS_TEST_EXPECT_MSG_GT(n.Proto(2)->Pheromone(n.Addr(0), n.Addr(1)), 0.0, "P(0 via 1) at 2");
+    }
+};
+
+/// Ipv4L3Protocol "Tx" on every radio interface: Termite's control packets
+/// (UDP from and to kTermitePort), read as the core's header after the UDP
+/// header, with their IPv4 TTL and destination (#156).
+struct ControlTx {
+    uint32_t rreq = 0;
+    uint32_t rrep = 0;
+    uint32_t other = 0;            ///< a control packet of another type, or unreadable
+    std::set<uint32_t> ttls;       ///< IPv4 TTLs control packets left with
+    std::set<Ipv4Address> to;      ///< their IPv4 destinations
+    std::set<Ipv4Address> rrepAt;  ///< the nodes (sources) that sent a RREP hop
+};
+void CountControlTx(ControlTx* c, Ptr<const Packet> p, Ptr<Ipv4>, uint32_t iface) {
+    if (iface == 0) return;
+    Ptr<Packet> q = p->Copy();
+    Ipv4Header ip;
+    q->RemoveHeader(ip);
+    if (ip.GetProtocol() != 17 || ip.GetFragmentOffset() != 0) return;
+    UdpHeader udp;
+    q->PeekHeader(udp);
+    constexpr uint16_t port = ns3::termite::RoutingProtocol::kTermitePort;
+    if (udp.GetSourcePort() != port || udp.GetDestinationPort() != port) return;
+    c->ttls.insert(ip.GetTtl());
+    c->to.insert(ip.GetDestination());
+    const auto h = ns3::termite::ReadPacketHeader(q, kUdp);
+    if (h && h->type == PacketType::RouteRequest) {
+        ++c->rreq;
+    } else if (h && h->type == PacketType::RouteReply) {
+        ++c->rrep;
+        c->rrepAt.insert(ip.GetSource());
+    } else {
+        ++c->other;
+    }
+}
+
+/// Route discovery in the adapter (#200): node 0 sends to node 3, which has
+/// never sent to it. Each node first hears one frame of each neighbour's own
+/// (a neighbour, and its column, as a hello would give, #201); only the
+/// nodes next to 3 know 3. Node 0 holds the data, its RREQs walk until a node
+/// that knows 3 answers, the RREP lays 3's trail back to 0 one hop at a time,
+/// and the held data is released along it.
+class RouteDiscoveryTestCase : public TestCase {
+public:
+    /// `diamond`: the diamond of the multipath test (0 - {1, 2} - 3), else
+    /// the chain 0 - 1 - 2 - 3, where the RREP crosses two hops.
+    explicit RouteDiscoveryTestCase(bool diamond)
+        : TestCase(std::string("adapter: route request and reply deliver to a destination that "
+                               "never sent, on the ") +
+                   (diamond ? "diamond" : "chain")),
+          m_diamond(diamond) {}
+
+private:
+    void DoRun() override {
+        const std::vector<Vector> pos =
+            m_diamond ? std::vector<Vector>{{0, 0, 0}, {150, 100, 0}, {150, -100, 0}, {300, 0, 0}}
+                      : std::vector<Vector>{{0, 0, 0}, {200, 0, 0}, {400, 0, 0}, {600, 0, 0}};
+        Net n(pos, 1);
+        // (from, to): node `from`'s own frame to `to`, so `to` knows `from`.
+        const std::vector<std::pair<uint32_t, uint32_t>> links =
+            m_diamond ? std::vector<std::pair<uint32_t, uint32_t>>{{1, 0}, {2, 0}, {3, 1}, {3, 2}}
+                      : std::vector<std::pair<uint32_t, uint32_t>>{{1, 0}, {2, 1}, {3, 2}};
+        double at = 0.1;
+        uint32_t id = kTrailId;
+        for (const auto& [from, to] : links) {
+            n.Lay(at, from, to, Trail(n, from, from, to, id++, 32));
+            at += 0.1;
+        }
+        ControlTx control;
+        uint32_t routeDrops = 0;
+        for (uint32_t i = 0; i < 4; ++i) {
+            n.L3(i)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&CountControlTx, &control));
+            n.L3(i)->TraceConnectWithoutContext("Drop", MakeBoundCallback(&RouteDrop, &routeDrops));
+        }
+        bool knewBefore = true;
+        Simulator::Schedule(Seconds(0.9), [&] {
+            knewBefore = n.Proto(0)->Pheromone(n.Addr(3), n.Addr(1)) > 0.0 ||
+                         n.Proto(0)->Pheromone(n.Addr(3), n.Addr(2)) > 0.0;
+        });
+        n.Send(1.0, 0.25, 4, 0, n.Addr(3));
+        n.Run(4.0);
+
+        NS_TEST_EXPECT_MSG_EQ(knewBefore, false, "node 0 did not know 3 before the request");
+        NS_TEST_EXPECT_MSG_EQ(n.received[3], 4u, "every packet delivered");
+        NS_TEST_EXPECT_MSG_EQ((n.sizes == std::set<uint32_t>{kPayload}), true,
+                              "the header is off every delivered payload");
+        NS_TEST_EXPECT_MSG_EQ(routeDrops, 0u, "no route drop");
+        const auto& stats = n.Proto(0)->GetDeferredQueue()->Stats();
+        NS_TEST_EXPECT_MSG_GT(stats.enqueued, 0u, "node 0 held data for 3");
+        NS_TEST_EXPECT_MSG_EQ(stats.discarded, 0u, "nothing held was discarded");
+        NS_TEST_EXPECT_MSG_EQ(n.Proto(0)->GetDeferredQueue()->Size(), 0u, "nothing left held");
+        // Table 4.1: two RREQs per request, one request (later data joins it).
+        // Chain: each walks 0 -> 1 -> 2, where 2 answers; the RREP goes back
+        // by eq. 4.3, so it may also stray to 3 and die there. Diamond: each
+        // walks 0 -> 1 or 2, which answers.
+        NS_TEST_EXPECT_MSG_GT_OR_EQ(control.rreq, m_diamond ? 2u : 4u, "RREQ hops on the air");
+        NS_TEST_EXPECT_MSG_GT_OR_EQ(control.rrep, m_diamond ? 1u : 2u, "RREP hops on the air");
+        NS_TEST_EXPECT_MSG_EQ(control.other, 0u, "no other control packet");
+        if (!m_diamond) {
+            NS_TEST_EXPECT_MSG_EQ(
+                (control.rrepAt.count(n.Addr(2)) == 1 && control.rrepAt.count(n.Addr(1)) == 1),
+                true, "the RREP is re-sent hop by hop: by 2, then by 1");
+        }
+        // #156: every control packet goes one hop, at IPv4 TTL 1, to a
+        // neighbour's own address; none is relayed at the IP layer.
+        NS_TEST_EXPECT_MSG_EQ((control.ttls == std::set<uint32_t>{1}), true, "control at TTL 1");
+        for (const Ipv4Address& a : control.to) {
+            NS_TEST_EXPECT_MSG_EQ(
+                (a == n.Addr(0) || a == n.Addr(1) || a == n.Addr(2) || a == n.Addr(3)), true,
+                "unicast to a node's own address, not broadcast");
+        }
+        // The RREP laid 3's trail at the requester, and the RREQ 0's at the answerer.
+        NS_TEST_EXPECT_MSG_GT(n.Proto(0)->Pheromone(n.Addr(3), n.Addr(1)) +
+                                  n.Proto(0)->Pheromone(n.Addr(3), n.Addr(2)),
+                              0.0, "node 0 knows 3");
+    }
+
+    bool m_diamond;
+};
+
+/// A data packet to nobody's address (#200): held, its two RREQs walk to the
+/// chain's end and die there, nobody answers, and at the rreq timeout (2 s,
+/// Table 4.1) the held packet is dropped as a route drop.
+class UnknownDestinationTestCase : public TestCase {
+public:
+    UnknownDestinationTestCase()
+        : TestCase("adapter: data for an unknown destination is held, then dropped at the rreq "
+                   "timeout") {}
+
+private:
+    void DoRun() override {
+        Net n({{0, 0, 0}, {200, 0, 0}, {400, 0, 0}}, 1);
+        n.Lay(0.1, 1, 0, Trail(n, 1, 1, 0, kTrailId, 32));
+        n.Lay(0.2, 2, 1, Trail(n, 2, 2, 1, kTrailId + 1, 32));
+        ControlTx control;
+        uint32_t routeDrops = 0;
+        for (uint32_t i = 0; i < 3; ++i)
+            n.L3(i)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&CountControlTx, &control));
+        n.L3(0)->TraceConnectWithoutContext("Drop", MakeBoundCallback(&RouteDrop, &routeDrops));
+        uint32_t heldAt2s = 0;
+        uint32_t dropsAt2s = 0;
+        Simulator::Schedule(Seconds(2.9), [&] {
+            heldAt2s = n.Proto(0)->GetDeferredQueue()->Size();
+            dropsAt2s = routeDrops;
+        });
+        n.Send(1.0, 0.25, 1, 0, Ipv4Address("10.1.1.250"));  // nobody's address
+        n.Run(3.5);
+
+        NS_TEST_EXPECT_MSG_EQ(heldAt2s, 1u, "held until the rreq timeout");
+        NS_TEST_EXPECT_MSG_EQ(dropsAt2s, 0u, "not dropped before it");
+        NS_TEST_EXPECT_MSG_EQ(routeDrops, 1u, "dropped at the timeout, as a route drop");
+        NS_TEST_EXPECT_MSG_EQ(n.Proto(0)->GetDeferredQueue()->Stats().discarded, 1u,
+                              "discarded by the core's timeout");
+        // Two walks, 0 -> 1 -> 2 each; 2's only neighbour is the arrival link.
+        NS_TEST_EXPECT_MSG_EQ(control.rreq, 4u, "two RREQs, two hops each");
+        NS_TEST_EXPECT_MSG_EQ(control.rrep, 0u, "nobody answers");
         uint32_t queued = 0;
         for (std::size_t i = 0; i < n.actions.size(); ++i) {
             if (n.actions[i] == static_cast<uint8_t>(RouteAction::Queue) && n.actionNodes[i] == 0)
                 ++queued;
         }
         NS_TEST_EXPECT_MSG_EQ(queued, 1u, "the core asked to queue it");
-        // The data laid the reverse trail: node 2 reaches 0 through 1.
-        NS_TEST_EXPECT_MSG_GT(n.Proto(2)->Pheromone(n.Addr(0), n.Addr(1)), 0.0, "P(0 via 1) at 2");
     }
 };
 
@@ -670,6 +826,9 @@ public:
         AddTestCase(new HeaderRoundtripTestCase, TestCase::Duration::QUICK);
         AddTestCase(new HeaderFuzzTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ChainTestCase, TestCase::Duration::QUICK);
+        AddTestCase(new RouteDiscoveryTestCase(false), TestCase::Duration::QUICK);
+        AddTestCase(new RouteDiscoveryTestCase(true), TestCase::Duration::QUICK);
+        AddTestCase(new UnknownDestinationTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ControlLookalikeTestCase, TestCase::Duration::QUICK);
         AddTestCase(new OverhearTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ObserverTestCase, TestCase::Duration::QUICK);
