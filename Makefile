@@ -55,10 +55,12 @@ swarm-core:  # swarm-core at SWARM_CORE_REF (swarm-core.lock's tag), for the inc
 	@[ -d "$(SWARM_CORE_SRC)/.git" ] || git init -q "$(SWARM_CORE_SRC)"
 	@git -C "$(SWARM_CORE_SRC)" fetch -q --depth 1 https://github.com/swarm-routing/swarm-core $(SWARM_CORE_REF) && git -C "$(SWARM_CORE_SRC)" checkout -q --detach FETCH_HEAD
 
-swarm-adapter:  # swarm-adapter-ns3 at SWARM_ADAPTER_REF into SWARM_ADAPTER_NS3 when no checkout is there; warns when one is not at the tag
-	@[ -n "$(SWARM_ADAPTER_REF)" ] || { echo "make: no swarm-core=swarm-routing/swarm-adapter-ns3@<tag> line in .github/workflows/ns3.yml" >&2; exit 2; }
-	@[ -d "$(SWARM_ADAPTER_NS3)" ] || git clone -q --depth 1 --branch "$(SWARM_ADAPTER_REF)" https://github.com/swarm-routing/swarm-adapter-ns3 "$(SWARM_ADAPTER_NS3)"
-	@[ "$$(git -C "$(SWARM_ADAPTER_NS3)" describe --tags --exact-match 2>/dev/null)" = "$(SWARM_ADAPTER_REF)" ] || echo "make: $(SWARM_ADAPTER_NS3) is not at $(SWARM_ADAPTER_REF) (ns3.yml's tag): building on it as it is" >&2
+# swarm-adapter-ns3 at SWARM_ADAPTER_REF into SWARM_ADAPTER_NS3 when no checkout is there; warns when one is not at the tag.
+# The tag is needed only to clone: a release archive (no .github/) builds on SWARM_ADAPTER_NS3 or takes SWARM_ADAPTER_REF=<tag>.
+swarm-adapter:
+	@[ -d "$(SWARM_ADAPTER_NS3)" ] || { [ -n "$(SWARM_ADAPTER_REF)" ] || { echo "make: no checkout at $(SWARM_ADAPTER_NS3), and no swarm-core=swarm-routing/swarm-adapter-ns3@<tag> line in .github/workflows/ns3.yml: pass SWARM_ADAPTER_NS3=<checkout> or SWARM_ADAPTER_REF=<tag>" >&2; exit 2; }; \
+	  git clone -q -c advice.detachedHead=false --depth 1 --branch "$(SWARM_ADAPTER_REF)" https://github.com/swarm-routing/swarm-adapter-ns3 "$(SWARM_ADAPTER_NS3)"; }
+	@[ -z "$(SWARM_ADAPTER_REF)" ] || [ "$$(git -C "$(SWARM_ADAPTER_NS3)" describe --tags --exact-match 2>/dev/null)" = "$(SWARM_ADAPTER_REF)" ] || echo "make: $(SWARM_ADAPTER_NS3) is not at $(SWARM_ADAPTER_REF) (ns3.yml's tag): building on it as it is" >&2
 
 headers: org-tools swarm-core ## licence headers (org rule 1)
 	"$(ORG_DIR)/tools/checks/check-headers.sh" --dual core/ --core core/ --core-dep "$(SWARM_CORE_SRC)/core" .
