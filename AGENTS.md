@@ -75,19 +75,23 @@ CI for `ns3/` is [`reusable-ns3-ci.yml`](https://github.com/swarm-routing/.githu
 ```bash
 make help    # the org's standard target names: build, test, lint, format, check, clean, shell, ci
 make check   # everything CI gates on
-docker run --rm -v "$PWD:/src/termite:ro" -v "$PWD/../ns3-swarm-core:/src/ns3-swarm-core:ro" \
+docker run --rm -v "$PWD:/src/termite:ro" -v "$PWD/../swarm-adapter-ns3:/src/swarm-adapter-ns3:ro" \
     ghcr.io/swarm-routing/ns3-dev:latest-debug \
     ns3-build-contrib --strict-warnings --quality-modules termite --test \
-    swarm-core=/src/ns3-swarm-core termite=/src/termite/ns3
+    swarm-core=/src/swarm-adapter-ns3 termite=/src/termite/ns3
 ```
 
-(`make test` does the same with `SWARM_CORE_NS3=<checkout>`, default
-`../ns3-swarm-core`). To build the harness arm and run it in the same
+(`make test` does the same on swarm-routing/swarm-adapter-ns3, which ships the
+ns-3 module `swarm-core`, at `SWARM_ADAPTER_REF`, the tag of the
+`swarm-core=` line in ns3.yml's `dependencies:` (read from it); it clones that
+tag into `SWARM_ADAPTER_NS3`, default `../swarm-adapter-ns3`, when no checkout
+is there, and builds on an existing checkout as it is, warning when it is not
+at the tag). To build the harness arm and run it in the same
 container, also mount `swarm-routing/ns3-tools` at `/src/ns3-tools`, add
 `routing-bench=/src/ns3-tools/ns3/routing-bench` before `termite=`, and pass
 `--run "routing-compare --scenario=paper --nNodes=20 --time=30 --runs=1
 --protocols=termite"` to `ns3-build-contrib`. CI passes `dependencies:
-swarm-core=swarm-routing/ns3-swarm-core@<swarm-core.lock's tag>` and
+swarm-core=swarm-routing/swarm-adapter-ns3@<a swarm-adapter-ns3 release>` and
 `routing-bench=swarm-routing/ns3-tools@<an ns3-tools release>:ns3/routing-bench` (releases; the same at `@main` in `canary-dependencies`, a non-blocking leg outside PRs) and runs that
 `routing-compare` line as the smoke. Until the core can learn a destination
 it has not heard from (#6), the arm delivers nothing there (PDR 0, every drop
