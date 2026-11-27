@@ -183,6 +183,19 @@ void TestRouteReplyReleases(Checker& c) {
     h.events.runUntil(5.0);
     c.check(sink.discarded.empty(), "a request that ended does not time out");
 
+    // A relay's held packet whose release is a dead end: the Drop carries the
+    // held header, so the adapter can tell which held copy it is for.
+    Harness deadEnd(0);
+    Sink out;
+    deadEnd.router.setOutput(&out);
+    const PacketHeader in = dataFrame(5, 9, 1, 0, 44, 20);
+    c.check(deadEnd.router.onReceive(in).action == RouteAction::Queue, "held at the relay");
+    hearOnce(deadEnd.router, 9, 1, 2);  // 9 known, but only through the arrival link
+    c.check(out.released.size() == 1 && out.released[0].second.size() == 1, "released");
+    const Decision& drop = out.released[0].second.front();
+    c.check(drop.action == RouteAction::Drop && drop.message && *drop.message == in,
+            "a released Drop carries the held header");
+
     // An intermediate node routes the RREP on; with no column for the
     // requester it drops it (control is not held).
     Harness mid(0);

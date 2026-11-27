@@ -261,8 +261,13 @@ void Router::releaseKnown() {
         pending_.erase(it);
         heldCount_ -= held.size();
         std::vector<Decision> decisions;
-        for (const auto& [header, arrival] : held)
-            decisions.push_back(observed(header, forward(header, arrival)));
+        for (const auto& [header, arrival] : held) {
+            Decision d = forward(header, arrival);
+            // A dropped one keeps the held header, so the adapter can tell
+            // which held copy each decision is for (CodeRabbit on #248).
+            if (!d.message) d.message = header;
+            decisions.push_back(observed(header, d));
+        }
         if (output_) output_->release(destination, decisions);
     }
 }

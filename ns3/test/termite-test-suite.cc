@@ -30,6 +30,7 @@
 #include "ns3/ipv4-address-helper.h"
 #include "ns3/ipv4-l3-protocol.h"
 #include "ns3/mobility-helper.h"
+#include "ns3/mobility-model.h"
 #include "ns3/packet-socket-address.h"
 #include "ns3/simulator.h"
 #include "ns3/socket.h"
@@ -312,6 +313,11 @@ public:
         return m_nodes.Get(i)->GetObject<ns3::termite::RoutingProtocol>();
     }
     Ipv4Address Addr(uint32_t i) const { return m_ifs.GetAddress(i); }
+    /// At `at`, node `i` jumps to `where`.
+    void Move(double at, uint32_t i, Vector where) {
+        Ptr<MobilityModel> m = m_nodes.Get(i)->GetObject<MobilityModel>();
+        Simulator::Schedule(Seconds(at), [m, where] { m->SetPosition(where); });
+    }
     Ptr<Ipv4L3Protocol> L3(uint32_t i) const { return m_nodes.Get(i)->GetObject<Ipv4L3Protocol>(); }
 
     /// At `at`, node `from` sends the frame a Termite node would: `h` right
@@ -749,6 +755,48 @@ private:
     }
 };
 
+/// The same packet held twice, one copy's release a dead end (CodeRabbit on
+/// #248): after both copies are held, node 2 leaves and relay 1 loses it (a
+/// real MAC failure on data it sends 2). When 3 becomes known through 0, the
+/// copy from 0 has nowhere to go and is dropped, and the copy from 2 goes to
+/// 0. Each takes its own decision: the unicast is not given to the copy from 0.
+class HeldTwiceDropTestCase : public TestCase {
+public:
+    HeldTwiceDropTestCase()
+        : TestCase("adapter: a packet held twice, one release dropped, the other not misrouted") {}
+
+private:
+    void DoRun() override {
+        Net n({{-200, 0, 0}, {0, 0, 0}, {200, 0, 0}, {0, 2000, 0}}, 1);
+        n.Lay(0.1, 0, 1, Trail(n, 0, 0, 1, kTrailId, 32));
+        n.Lay(0.2, 2, 1, Trail(n, 2, 2, 1, kTrailId + 1, 32));
+        const PacketHeader viaZero{PacketType::Data, n.Core(0), n.Core(3), n.Core(0),
+                                   n.Core(1),        77,        31};
+        PacketHeader viaTwo = viaZero;
+        viaTwo.previousHop = n.Core(2);
+        n.Lay(0.5, 0, 1, viaZero, 50);
+        n.Lay(0.6, 2, 1, viaTwo, 40);
+        // Data 1 -> 2 at 0.3 s (resolves 2's MAC address) and at 0.8 s, after
+        // 2 has left: the MAC gives up, and 1 loses its row for 2.
+        n.Send(0.3, 0.5, 2, 1, n.Addr(2));
+        n.Move(0.7, 2, {200, 5000, 0});
+        RelayTx tx;
+        tx.arrivalByTtl = {{49, n.Addr(0)}, {39, n.Addr(2)}};
+        n.L3(1)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&CountRelayTx, &tx));
+        uint32_t routeDrops = 0;
+        n.L3(1)->TraceConnectWithoutContext("Drop", MakeBoundCallback(&RouteDrop, &routeDrops));
+        bool lost = false;
+        Simulator::Schedule(Seconds(1.4),
+                            [&] { lost = n.Proto(1)->Pheromone(n.Addr(0), n.Addr(2)) == 0.0; });
+        n.Lay(1.5, 0, 1, {PacketType::Data, n.Core(3), n.Core(1), n.Core(0), n.Core(1), 99, 30});
+        n.Run(2.0);
+        NS_TEST_EXPECT_MSG_EQ(lost, true, "relay 1 lost node 2 before 3 became known");
+        NS_TEST_EXPECT_MSG_EQ(tx.forwarded, 1u, "one copy forwarded");
+        NS_TEST_EXPECT_MSG_EQ(tx.backOnArrival, 0u, "not the copy from 0 back to 0");
+        NS_TEST_EXPECT_MSG_GT_OR_EQ(routeDrops, 1u, "the copy from 0 dropped");
+    }
+};
+
 /// The Termite header's bytes 2-3 are the low bytes of the source address: for
 /// 10.1.166.21 they read 0x15A6, the control port, if taken for a UDP header.
 /// When the header rode in front of the UDP header, such a source's data had
@@ -893,6 +941,7 @@ public:
         AddTestCase(new RouteDiscoveryTestCase(true), TestCase::Duration::QUICK);
         AddTestCase(new UnknownDestinationTestCase, TestCase::Duration::QUICK);
         AddTestCase(new HeldTwiceTestCase, TestCase::Duration::QUICK);
+        AddTestCase(new HeldTwiceDropTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ControlLookalikeTestCase, TestCase::Duration::QUICK);
         AddTestCase(new OverhearTestCase, TestCase::Duration::QUICK);
         AddTestCase(new ObserverTestCase, TestCase::Duration::QUICK);

@@ -117,7 +117,9 @@ public:
     /// A control packet this node originates (a RREQ): Unicast, header set.
     virtual void sendControl(const Decision& decision) = 0;
     /// `destination` became known: one decision per held packet, in the order
-    /// they were held (Unicast, or Drop when one cannot be sent).
+    /// they were held (Unicast, or Drop when one cannot be sent). Each carries
+    /// a header: the one to send, or for a Drop the held one, so a decision
+    /// can be matched to its packet by keyOf().
     virtual void release(NodeAddress destination, const std::vector<Decision>& decisions) = 0;
     /// The rreq timeout passed with `destination` still unknown: its `count`
     /// held packets are dropped.
