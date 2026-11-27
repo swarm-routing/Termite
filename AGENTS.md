@@ -18,6 +18,7 @@ core/       simulator-agnostic algorithm + unit tests (no ns-3 headers; MIT OR G
   termite-packet.*    the packet header (six fields of §4.2.6 + type) and its versioned wire format
   termite-router.*    per-node pheromone table and data decisions (ports in, RouteDecisions out); reports through swarm-core's IRouterObserver (docs/observer.md)
   test/               the core tests (plain CMake + ctest; the ns-3 suite runs the same list); test/consumer-package/: a find_package(termite-core) consumer
+                      test/test-contract.cc: swarm-core's protocol contract suite (testbench/swarm-contract-tests.h), its own ctest case, core only (#185)
   termite-coreConfig.cmake.in   the CMake package termite-core (TERMITE_CORE_INSTALL, on swarm-core's package; #135)
 ns3/        contrib module `termite` (GPL-2.0-only), compiling core/ on swarm-core
   model/termite-header.*            the core's header as an ns3::Header, right after the UDP header of every data packet (in front of any other transport header; #95)

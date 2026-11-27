@@ -143,8 +143,15 @@ if(TERMITE_CORE_TESTS)
   target_link_libraries(termite_core_tests PRIVATE termite_core)
   target_compile_options(termite_core_tests PRIVATE ${TERMITE_WARNINGS})
 
+  # swarm-core's protocol contract suite (its testbench/swarm-contract-tests.h,
+  # header-only, from the same swarm-core; #185): one more executable.
+  add_executable(termite_contract_tests test/test-contract.cc)
+  target_link_libraries(termite_contract_tests PRIVATE termite_core)
+  target_compile_options(termite_contract_tests PRIVATE ${TERMITE_WARNINGS})
+
   enable_testing()
   add_test(NAME termite-core COMMAND termite_core_tests)
+  add_test(NAME termite-contract COMMAND termite_contract_tests)
 endif()
 
 if(TERMITE_CORE_INSTALL)
